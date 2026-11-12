@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "claimA": {
+      "title": "Claima",
+      "type": "string"
+    },
+    "claimB": {
+      "title": "Claimb",
+      "type": "string"
+    },
+    "explanation": {
+      "title": "Explanation",
+      "type": "string"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "severity": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "contradiction",
+        "different_figures",
+        "withdrawn",
+        "scope_conflict"
+      ],
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "claimA",
+    "claimB",
+    "type",
+    "severity",
+    "explanation"
+  ],
+  "title": "DivergenceProposal",
+  "type": "object"
+}

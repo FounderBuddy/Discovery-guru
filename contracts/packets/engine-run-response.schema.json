@@ -1,0 +1,49 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "accepted": {
+      "default": 0,
+      "title": "Accepted",
+      "type": "integer"
+    },
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    },
+    "engine": {
+      "title": "Engine",
+      "type": "string"
+    },
+    "rejected": {
+      "default": 0,
+      "title": "Rejected",
+      "type": "integer"
+    },
+    "runId": {
+      "title": "Runid",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "skipped"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "runId",
+    "engine",
+    "status"
+  ],
+  "title": "EngineRunResponse",
+  "type": "object"
+}

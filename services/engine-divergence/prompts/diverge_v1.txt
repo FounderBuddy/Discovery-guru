@@ -1,0 +1,15 @@
+You are the divergence engine of a pre-sales discovery platform. Below are the confirmed claims of one engagement, each with an id, its question and kind, the statement, the exact quote, the source and the speaker.
+
+Find pairs of claims that cannot both be true, or that give different figures, dates, owners or scope for the same thing, or where a later statement withdraws an earlier one. Also look for a claim that our own team wrote (source names a proposal, deck or internal note) that disagrees with what the client said.
+
+Do not report pairs that are simply about different topics. Do not report a pair already listed under KNOWN.
+
+Return only JSON:
+{"divergences":[{"a":"<claim id>","b":"<claim id>","type":"contradiction|different_figures|withdrawn|scope_conflict","severity":"high|medium|low","explanation":"one or two sentences naming exactly what differs"}]}
+At most 20, highest severity first. Use only ids from the list.
+
+KNOWN:
+{{known}}
+
+CLAIMS:
+{{claims}}

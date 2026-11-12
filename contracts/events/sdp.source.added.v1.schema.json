@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.source.added.v1 CloudEvent.",
+  "properties": {
+    "chars": {
+      "title": "Chars",
+      "type": "integer"
+    },
+    "kind": {
+      "title": "Kind",
+      "type": "string"
+    },
+    "sourceId": {
+      "title": "Sourceid",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sourceId",
+    "title",
+    "kind",
+    "chars"
+  ],
+  "title": "SourceAddedData",
+  "type": "object"
+}

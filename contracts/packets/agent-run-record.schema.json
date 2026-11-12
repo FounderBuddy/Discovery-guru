@@ -1,0 +1,114 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "accepted": {
+      "default": 0,
+      "title": "Accepted",
+      "type": "integer"
+    },
+    "actorId": {
+      "default": "",
+      "title": "Actorid",
+      "type": "string"
+    },
+    "costUsd": {
+      "default": 0.0,
+      "title": "Costusd",
+      "type": "number"
+    },
+    "durationMs": {
+      "default": 0,
+      "title": "Durationms",
+      "type": "integer"
+    },
+    "engine": {
+      "title": "Engine",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "inputSummary": {
+      "default": "",
+      "title": "Inputsummary",
+      "type": "string"
+    },
+    "model": {
+      "default": "",
+      "title": "Model",
+      "type": "string"
+    },
+    "outputSummary": {
+      "default": "",
+      "title": "Outputsummary",
+      "type": "string"
+    },
+    "promptVersion": {
+      "title": "Promptversion",
+      "type": "string"
+    },
+    "provider": {
+      "default": "",
+      "title": "Provider",
+      "type": "string"
+    },
+    "rejected": {
+      "default": 0,
+      "title": "Rejected",
+      "type": "integer"
+    },
+    "rejectedSamples": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Rejectedsamples",
+      "type": "array"
+    },
+    "startedAt": {
+      "title": "Startedat",
+      "type": "string"
+    },
+    "task": {
+      "title": "Task",
+      "type": "string"
+    },
+    "tier": {
+      "default": "",
+      "title": "Tier",
+      "type": "string"
+    },
+    "tokensIn": {
+      "default": 0,
+      "title": "Tokensin",
+      "type": "integer"
+    },
+    "tokensOut": {
+      "default": 0,
+      "title": "Tokensout",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "engine",
+    "task",
+    "promptVersion",
+    "startedAt"
+  ],
+  "title": "AgentRunRecord",
+  "type": "object"
+}

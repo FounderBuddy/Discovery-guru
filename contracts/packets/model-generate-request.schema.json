@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "ChatMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "ChatMessage",
+      "type": "object"
+    },
+    "Tier": {
+      "enum": [
+        "quick",
+        "default",
+        "complex"
+      ],
+      "title": "Tier",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "engagementId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Engagementid"
+    },
+    "maxTokens": {
+      "default": 4096,
+      "title": "Maxtokens",
+      "type": "integer"
+    },
+    "messages": {
+      "items": {
+        "$ref": "#/$defs/ChatMessage"
+      },
+      "title": "Messages",
+      "type": "array"
+    },
+    "promptVersion": {
+      "title": "Promptversion",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Override the routed provider for this call.",
+      "title": "Provider"
+    },
+    "responseFormat": {
+      "default": "json",
+      "enum": [
+        "json",
+        "text"
+      ],
+      "title": "Responseformat",
+      "type": "string"
+    },
+    "system": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "System"
+    },
+    "task": {
+      "description": "Logical task, used for routing: extraction, divergence, questions, recommendation...",
+      "title": "Task",
+      "type": "string"
+    },
+    "temperature": {
+      "default": 0.0,
+      "title": "Temperature",
+      "type": "number"
+    },
+    "tier": {
+      "$ref": "#/$defs/Tier",
+      "default": "default"
+    }
+  },
+  "required": [
+    "task",
+    "promptVersion",
+    "messages"
+  ],
+  "title": "ModelGenerateRequest",
+  "type": "object"
+}

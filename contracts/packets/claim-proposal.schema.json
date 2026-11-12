@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "ClaimKind": {
+      "enum": [
+        "driver",
+        "pain_point",
+        "baseline",
+        "outcome",
+        "use_case",
+        "guardrail",
+        "estate_fact",
+        "number",
+        "constraint",
+        "decision",
+        "owner",
+        "risk",
+        "open_question",
+        "preference"
+      ],
+      "title": "ClaimKind",
+      "type": "string"
+    },
+    "NumberValue": {
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "default": "",
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "NumberValue",
+      "type": "object"
+    },
+    "Question": {
+      "enum": [
+        "why",
+        "what",
+        "rules",
+        "from",
+        "how"
+      ],
+      "title": "Question",
+      "type": "string"
+    },
+    "RuleCategory": {
+      "enum": [
+        "regulatory",
+        "security",
+        "strategic",
+        "architecture",
+        "organisational",
+        "commercial",
+        "operational"
+      ],
+      "title": "RuleCategory",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "confidence": {
+      "default": "medium",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Confidence",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/ClaimKind"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "number": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NumberValue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "part": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Part"
+    },
+    "promptVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Promptversion"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "question": {
+      "$ref": "#/$defs/Question"
+    },
+    "quote": {
+      "default": "",
+      "title": "Quote",
+      "type": "string"
+    },
+    "ruleCategory": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuleCategory"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "sourceId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourceid"
+    },
+    "speaker": {
+      "default": "",
+      "title": "Speaker",
+      "type": "string"
+    },
+    "statement": {
+      "title": "Statement",
+      "type": "string"
+    }
+  },
+  "required": [
+    "statement",
+    "question",
+    "kind"
+  ],
+  "title": "ClaimProposal",
+  "type": "object"
+}

@@ -1,0 +1,16 @@
+# Builds any Python service:  docker build --build-arg SERVICE=ledger -f deploy/Dockerfile.service .
+FROM python:3.12-slim
+ARG SERVICE
+ENV PYTHONUNBUFFERED=1 PORT=8080 SDP_SERVICE_NAME=${SERVICE} \
+    MODELS_CONFIG=/srv/config/models.yaml SDP_SEED_PRACTICES=/srv/config/practices.seed.json
+WORKDIR /srv
+COPY libs/sdp_common /srv/libs/sdp_common
+RUN pip install --no-cache-dir /srv/libs/sdp_common
+COPY services/${SERVICE}/requirements.txt /srv/requirements.txt
+RUN pip install --no-cache-dir -r /srv/requirements.txt
+COPY config /srv/config
+COPY services/${SERVICE} /srv/service
+WORKDIR /srv/service
+RUN useradd -r -u 10001 sdp && mkdir -p /srv/service/data && chown -R sdp /srv/service/data
+USER sdp
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}

@@ -1,0 +1,20 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.openitem.escalated.v1 CloudEvent.",
+  "properties": {
+    "level": {
+      "title": "Level",
+      "type": "integer"
+    },
+    "openItemId": {
+      "title": "Openitemid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "openItemId",
+    "level"
+  ],
+  "title": "OpenItemEscalatedData",
+  "type": "object"
+}

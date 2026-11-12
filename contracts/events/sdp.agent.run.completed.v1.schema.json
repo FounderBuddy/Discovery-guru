@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.agent.run.completed.v1 CloudEvent.",
+  "properties": {
+    "accepted": {
+      "title": "Accepted",
+      "type": "integer"
+    },
+    "engine": {
+      "title": "Engine",
+      "type": "string"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "integer"
+    },
+    "runId": {
+      "title": "Runid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "runId",
+    "engine",
+    "accepted",
+    "rejected"
+  ],
+  "title": "RunCompletedData",
+  "type": "object"
+}

@@ -1,0 +1,49 @@
+# Model gateway routing. Change a provider here and no engine changes.
+#
+# Every engine asks for a TASK and a TIER; the gateway decides which provider and model answer.
+# Secrets are never in this file: each provider names the environment variable that holds its key
+# (on GCP, mount it from Secret Manager).
+#
+# Model ids: confirm the current ids in each provider's console before going live. On Vertex AI,
+# Claude model ids can carry a version suffix (for example "claude-sonnet-5-5@<date>").
+
+default: claude-vertex
+
+routes:                     # task -> provider
+  extraction: claude-vertex
+  divergence: claude-vertex
+  questions: claude-vertex
+  recommendation: claude-vertex
+
+providers:
+  claude-vertex:
+    type: vertex_anthropic
+    project_env: GCP_PROJECT
+    region: us-east5
+    models: {quick: claude-haiku-5-5, default: claude-sonnet-5-5, complex: claude-opus-5-5}
+    prices: {claude-haiku-5-5: [1.0, 5.0], claude-sonnet-5-5: [3.0, 15.0], claude-opus-5-5: [15.0, 75.0]}  # USD per million tokens [in, out]: set from your price sheet
+
+  claude-api:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    models: {quick: claude-haiku-5-5, default: claude-sonnet-5-5, complex: claude-opus-5-5}
+    prices: {claude-haiku-5-5: [1.0, 5.0], claude-sonnet-5-5: [3.0, 15.0], claude-opus-5-5: [15.0, 75.0]}
+
+  kimi:
+    type: openai_compatible          # any OpenAI-compatible endpoint: Kimi, DeepSeek, vLLM, Ollama, OpenRouter
+    base_url: https://api.moonshot.ai/v1
+    api_key_env: MOONSHOT_API_KEY
+    models: {quick: kimi-k2, default: kimi-k2, complex: kimi-k2}   # set to the current Kimi model id
+    prices: {}
+
+  gemini-vertex:
+    type: vertex_gemini
+    project_env: GCP_PROJECT
+    region: us-central1
+    models: {quick: gemini-flash, default: gemini-pro, complex: gemini-pro}   # set to current Gemini model ids
+    prices: {}
+
+  mock:
+    type: mock                       # deterministic, offline: tests and local runs without keys
+    models: {quick: mock-1, default: mock-1, complex: mock-1}
+    prices: {}

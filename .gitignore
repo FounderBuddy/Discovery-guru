@@ -1,0 +1,12 @@
+data/
+**/data/
+node_modules/
+web/dist/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+.env
+*.db

@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "Outcome": {
+      "description": "How an unanswered question is resolved.",
+      "enum": [
+        "unclassified",
+        "insist",
+        "estimate",
+        "risk",
+        "pending",
+        "design_around"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "QuestionKind": {
+      "enum": [
+        "number",
+        "constraint",
+        "owner",
+        "decision",
+        "artefact"
+      ],
+      "title": "QuestionKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "askRole": {
+      "default": "",
+      "title": "Askrole",
+      "type": "string"
+    },
+    "impact": {
+      "default": "",
+      "title": "Impact",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/QuestionKind"
+    },
+    "outcome": {
+      "$ref": "#/$defs/Outcome",
+      "default": "unclassified"
+    },
+    "question": {
+      "title": "Question",
+      "type": "string"
+    },
+    "relatedClaimIds": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Relatedclaimids",
+      "type": "array"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    }
+  },
+  "required": [
+    "question",
+    "kind"
+  ],
+  "title": "OpenItemProposal",
+  "type": "object"
+}

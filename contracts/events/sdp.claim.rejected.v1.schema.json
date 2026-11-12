@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.claim.rejected.v1 CloudEvent.",
+  "properties": {
+    "claimId": {
+      "title": "Claimid",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "supersededBy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Supersededby"
+    }
+  },
+  "required": [
+    "claimId",
+    "status"
+  ],
+  "title": "ClaimStateData",
+  "type": "object"
+}

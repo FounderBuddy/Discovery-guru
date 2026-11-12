@@ -1,0 +1,22 @@
+# The api-gateway image also serves the built web app, so one public service sits behind IAP
+# and every other service stays private.   docker build -f deploy/Dockerfile.gateway .
+FROM node:22-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+RUN npm run build
+
+FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 PORT=8080 SDP_SERVICE_NAME=api-gateway WEB_DIST=/srv/web/dist
+WORKDIR /srv
+COPY libs/sdp_common /srv/libs/sdp_common
+RUN pip install --no-cache-dir /srv/libs/sdp_common
+COPY services/api-gateway/requirements.txt /srv/requirements.txt
+RUN pip install --no-cache-dir -r /srv/requirements.txt
+COPY services/api-gateway /srv/service
+COPY --from=web /web/dist /srv/web/dist
+WORKDIR /srv/service
+RUN useradd -r -u 10001 sdp
+USER sdp
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}

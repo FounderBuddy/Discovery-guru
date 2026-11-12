@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "description": "User id, or the engine name for agents, or the service name for system actions.",
+      "title": "Id",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/ActorType"
+    }
+  },
+  "required": [
+    "type",
+    "id"
+  ],
+  "title": "Actor",
+  "type": "object"
+}

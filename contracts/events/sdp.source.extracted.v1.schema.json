@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.source.extracted.v1 CloudEvent.",
+  "properties": {
+    "proposed": {
+      "title": "Proposed",
+      "type": "integer"
+    },
+    "rejected": {
+      "title": "Rejected",
+      "type": "integer"
+    },
+    "runId": {
+      "title": "Runid",
+      "type": "string"
+    },
+    "sourceId": {
+      "title": "Sourceid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sourceId",
+    "runId",
+    "proposed",
+    "rejected"
+  ],
+  "title": "SourceExtractedData",
+  "type": "object"
+}

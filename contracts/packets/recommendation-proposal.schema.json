@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "Alternative": {
+      "additionalProperties": false,
+      "properties": {
+        "option": {
+          "title": "Option",
+          "type": "string"
+        },
+        "whyNot": {
+          "title": "Whynot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option",
+        "whyNot"
+      ],
+      "title": "Alternative",
+      "type": "object"
+    },
+    "Conflict": {
+      "additionalProperties": false,
+      "properties": {
+        "claimId": {
+          "title": "Claimid",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "practiceId": {
+          "title": "Practiceid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "practiceId",
+        "claimId",
+        "description"
+      ],
+      "title": "Conflict",
+      "type": "object"
+    },
+    "RecLevel": {
+      "enum": [
+        "practice",
+        "best_practice",
+        "client_enforced"
+      ],
+      "title": "RecLevel",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "alternatives": {
+      "items": {
+        "$ref": "#/$defs/Alternative"
+      },
+      "title": "Alternatives",
+      "type": "array"
+    },
+    "assumptions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "claimIds": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Claimids",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "$ref": "#/$defs/Conflict"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "level": {
+      "$ref": "#/$defs/RecLevel"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "path": {
+      "title": "Path",
+      "type": "string"
+    },
+    "practiceIds": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Practiceids",
+      "type": "array"
+    },
+    "promptVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Promptversion"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "recommendation": {
+      "title": "Recommendation",
+      "type": "string"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    }
+  },
+  "required": [
+    "path",
+    "recommendation",
+    "rationale",
+    "level"
+  ],
+  "title": "RecommendationProposal",
+  "type": "object"
+}

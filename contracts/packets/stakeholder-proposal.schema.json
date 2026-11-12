@@ -1,0 +1,41 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "organisation": {
+      "default": "",
+      "title": "Organisation",
+      "type": "string"
+    },
+    "sourceId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourceid"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    },
+    "type": {
+      "default": "",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "StakeholderProposal",
+  "type": "object"
+}

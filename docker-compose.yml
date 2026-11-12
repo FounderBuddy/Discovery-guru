@@ -1,0 +1,108 @@
+# Everything on one laptop:  docker compose up --build   then open http://localhost:8000
+# Mock model by default. To use real models:  SDP_MODEL_DEFAULT=claude-api ANTHROPIC_API_KEY=... docker compose up
+# The tokens below are local-only placeholders; on Cloud Run services authenticate with Google ID tokens instead.
+
+x-tokens: &tokens
+  SDP_SERVICE_TOKENS: '{"api-gateway":"dev-gw","ledger":"dev-ledger","event-bus":"dev-bus","model-gateway":"dev-mg","ingestion":"dev-ing","engine-extraction":"dev-ex","engine-divergence":"dev-dv","engine-questions":"dev-qs","engine-recommendation":"dev-rc","engine-resolution":"dev-rs","engine-artefacts":"dev-ar"}'
+
+x-common: &common
+  <<: *tokens
+  INTERNAL_AUTH: token
+  BUS_BACKEND: http
+  LEDGER_URL: http://ledger:8080
+  EVENT_BUS_URL: http://event-bus:8080
+  MODEL_GATEWAY_URL: http://model-gateway:8080
+  INGESTION_URL: http://ingestion:8080
+  ENGINE_EXTRACTION_URL: http://engine-extraction:8080
+  ENGINE_DIVERGENCE_URL: http://engine-divergence:8080
+  ENGINE_QUESTIONS_URL: http://engine-questions:8080
+  ENGINE_RECOMMENDATION_URL: http://engine-recommendation:8080
+  ENGINE_RESOLUTION_URL: http://engine-resolution:8080
+  ENGINE_ARTEFACTS_URL: http://engine-artefacts:8080
+
+x-py: &py
+  build: { context: ., dockerfile: deploy/Dockerfile.service }
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: sdp, POSTGRES_PASSWORD: sdp-local, POSTGRES_DB: ledger }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD", "pg_isready", "-U", "sdp"], interval: 3s, retries: 20 }
+
+  ledger:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: ledger } }
+    environment:
+      <<: *common
+      SDP_SERVICE_TOKEN: dev-ledger
+      LEDGER_DB_URL: postgresql+psycopg://sdp:sdp-local@postgres:5432/ledger
+      SDP_DEV_USERS: '[{"id":"u_yesser","name":"Yesser Abdin","email":"yesser@example.com","isPracticeAdmin":true},{"id":"u_alex","name":"Alex Morgan","email":"alex@example.com"},{"id":"u_priya","name":"Priya Shah","email":"priya@example.com"},{"id":"u_sam","name":"Sam Lee","email":"sam@example.com"}]'
+    depends_on: { postgres: { condition: service_healthy } }
+
+  event-bus:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: event-bus } }
+    environment:
+      <<: *common
+      SDP_SERVICE_TOKEN: dev-bus
+      SDP_SUBSCRIPTIONS: '{"sdp.source.added.v1":["http://engine-extraction:8080/v1/events"]}'
+    volumes: [busdata:/srv/service/data]
+
+  model-gateway:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: model-gateway } }
+    environment:
+      <<: *common
+      SDP_SERVICE_TOKEN: dev-mg
+      SDP_MODEL_DEFAULT: ${SDP_MODEL_DEFAULT:-mock}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      GCP_PROJECT: ${GCP_PROJECT:-}
+
+  ingestion:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: ingestion } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-ing }
+
+  engine-extraction:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-extraction } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-ex, AUTO_EXTRACT: "${AUTO_EXTRACT:-false}" }
+
+  engine-divergence:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-divergence } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-dv }
+
+  engine-questions:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-questions } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-qs }
+
+  engine-recommendation:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-recommendation } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-rc }
+
+  engine-resolution:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-resolution } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-rs }
+
+  engine-artefacts:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-artefacts } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-ar }
+
+  api-gateway:
+    build: { context: ., dockerfile: deploy/Dockerfile.gateway }
+    restart: unless-stopped
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-gw, AUTH_MODE: dev }
+    ports: ["8000:8080"]
+    depends_on: [ledger, ingestion, model-gateway]
+
+volumes:
+  pgdata: {}
+  busdata: {}

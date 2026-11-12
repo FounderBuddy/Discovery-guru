@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.decision.escalated.v1 CloudEvent.",
+  "properties": {
+    "decisionId": {
+      "title": "Decisionid",
+      "type": "string"
+    },
+    "recommendationId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Recommendationid"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decisionId",
+    "title"
+  ],
+  "title": "DecisionEscalatedData",
+  "type": "object"
+}

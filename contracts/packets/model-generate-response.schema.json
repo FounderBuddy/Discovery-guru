@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "inputTokens": {
+          "default": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "default": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        }
+      },
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "costUsd": {
+      "default": 0.0,
+      "title": "Costusd",
+      "type": "number"
+    },
+    "latencyMs": {
+      "title": "Latencyms",
+      "type": "integer"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "output": {
+      "title": "Output"
+    },
+    "provider": {
+      "title": "Provider",
+      "type": "string"
+    },
+    "rawText": {
+      "title": "Rawtext",
+      "type": "string"
+    },
+    "usage": {
+      "$ref": "#/$defs/Usage"
+    }
+  },
+  "required": [
+    "output",
+    "rawText",
+    "provider",
+    "model",
+    "usage",
+    "latencyMs"
+  ],
+  "title": "ModelGenerateResponse",
+  "type": "object"
+}

@@ -1,0 +1,137 @@
+"""Deterministic offline model. It reads the same prompts the real models read and answers with
+contract-shaped JSON, so every engine, the ledger's checks and the UI can be exercised without keys.
+
+It is deliberately imperfect in one respect: each extraction part includes one claim whose quote is
+not in the source, so the citation check is visibly exercised in every local run.
+"""
+from __future__ import annotations
+
+import json
+import re
+
+UNITS = r"(tb|gb|reports|report|weeks|months|days|servers|vms|sources|users|people|%|years)"
+NUM = re.compile(r"(\d+(?:\.\d+)?)\s*" + UNITS, re.I)
+PREFIX = re.compile(r"^\s*(?:\[[^\]]*\]\s*)?([A-Z][\w .'-]{1,40}?):\s+")
+
+
+def _section(prompt: str, name: str) -> list[str]:
+    m = re.search(rf"{name}:\n(.*?)(?:\n[A-Z][A-Z ]+:\n|\Z)", prompt, re.S)
+    return [l for l in (m.group(1).splitlines() if m else []) if l.strip()]
+
+
+def _extract(prompt: str) -> dict:
+    m = re.search(r"<<<\n(.*)\n>>>", prompt, re.S)
+    text = m.group(1) if m else ""
+    claims, speakers = [], []
+    for line in text.splitlines():
+        pm = PREFIX.match(line)
+        speaker = pm.group(1).strip() if pm else ""
+        body = line[pm.end():] if pm else line
+        if speaker and speaker not in speakers:
+            speakers.append(speaker)
+        for sent in re.split(r"(?<=[.!?])\s+", body.strip()):
+            if len(sent) < 40:
+                continue
+            low = sent.lower()
+            num = NUM.search(sent)
+            number = {"value": float(num.group(1)), "unit": num.group(2).lower()} if num else None
+            if any(w in low for w in ("must", "policy", "compliance", "soc 2", "residen", "mandate",
+                                      "multi-cloud", "multi cloud", "standard", "not allowed", "approval")):
+                cat = ("regulatory" if any(w in low for w in ("soc 2", "residen", "compliance"))
+                       else "strategic" if "multi" in low else
+                       "organisational" if "approv" in low else "architecture")
+                q, kind = "rules", "guardrail"
+            elif any(w in low for w in ("takes", "manual", "slow", "pain", "problem", "frustrat", "by hand")):
+                q, kind, cat = "why", "pain_point", None
+            elif any(w in low for w in ("want", "goal", "need to", "aim", "so that", "would like")):
+                q, kind, cat = "what", "outcome", None
+            elif any(w in low for w in ("we have", "we run", "currently", "today", "server", "database", "warehouse", " tb")):
+                q, kind, cat = "from", "estate_fact", None
+            else:
+                continue
+            claims.append({"statement": sent, "quote": sent, "question": q, "kind": kind,
+                           "ruleCategory": cat, "number": number, "speaker": speaker, "confidence": "high"})
+    claims = claims[:40]
+    claims.append({"statement": "Mock model paraphrase that should be caught.",
+                   "quote": "This sentence does not appear anywhere in the source text.",
+                   "question": "from", "kind": "estate_fact", "ruleCategory": None, "number": None,
+                   "speaker": "", "confidence": "low"})
+    return {"claims": claims, "people": [{"name": s, "title": "", "organisation": "", "type": ""} for s in speakers]}
+
+
+def _claim_lines(prompt: str) -> list[dict]:
+    out = []
+    for line in _section(prompt, "CLAIMS"):
+        m = re.match(r"\[([^\]]+)\]\s*(?:\(([^)]*)\)\s*)?(.*)", line.strip())
+        if m:
+            out.append({"id": m.group(1), "tags": m.group(2) or "", "text": m.group(3)})
+    return out
+
+
+def _diverge(prompt: str) -> dict:
+    found, seen = [], {}
+    for c in _claim_lines(prompt):
+        n = NUM.search(c["text"])
+        if not n:
+            continue
+        unit = n.group(2).lower().rstrip("s")
+        val = float(n.group(1))
+        if unit in seen and seen[unit][1] != val:
+            found.append({"a": seen[unit][0], "b": c["id"], "type": "different_figures", "severity": "high",
+                          "explanation": f"Two different figures for {unit}s: {seen[unit][1]:g} and {val:g}."})
+        else:
+            seen.setdefault(unit, (c["id"], val))
+    return {"divergences": found[:20]}
+
+
+def _questions(prompt: str) -> dict:
+    items = []
+    for line in _section(prompt, "RULES CHECKLIST"):
+        m = re.match(r"-\s*(\w+)\s*\(([^)]*)\):\s*unknown", line.strip())
+        if m:
+            items.append({"question": f"Is there a documented {m.group(2).lower()} position this solution must follow? Please share the document.",
+                          "kind": "artefact", "outcome": "risk", "impact": f"{m.group(2)} guardrails are unknown, so design choices may need rework.",
+                          "askRole": "Security or architecture lead", "relatedClaimIds": []})
+    for c in _claim_lines(prompt):
+        if c["tags"].startswith("why") and "number:" not in c["text"]:
+            items.append({"question": f"What is today's baseline for this, as a number? {c['text'][:140]}",
+                          "kind": "number", "outcome": "estimate", "impact": "Without a baseline the outcome can't be measured.",
+                          "askRole": "Business sponsor", "relatedClaimIds": [c["id"]]})
+    return {"items": items[:12]}
+
+
+def _recommend(prompt: str) -> dict:
+    path = (re.search(r"PATH:\s*(.+)", prompt) or [None, "the path"])[1].strip()
+    words = {w for w in re.findall(r"[a-z]+", path.lower()) if len(w) > 3}
+    practices = []
+    for line in _section(prompt, "DATATONIC PRACTICES"):
+        m = re.match(r"\[([^\]]+)\]\s*(.*)", line.strip())
+        if m and (words & set(re.findall(r"[a-z]+", m.group(2).lower()))):
+            practices.append((m.group(1), m.group(2)))
+    rules = []
+    for line in _section(prompt, "CLIENT RULES"):
+        m = re.match(r"\[([^\]]+)\]\s*\((hard|soft)\)\s*(.*)", line.strip())
+        if m:
+            rules.append((m.group(1), m.group(2), m.group(3)))
+    claims = [c["id"] for c in _claim_lines(prompt)][:5]
+    conflicts = []
+    for rid, strength, text in rules:
+        if strength == "hard" and ("multi-cloud" in text.lower() or "multi cloud" in text.lower()):
+            for pid, ptext in practices:
+                if any(w in ptext.lower() for w in ("native", "single cloud", "only")):
+                    conflicts.append({"practiceId": pid, "claimId": rid,
+                                      "description": f"Client rule requires multi-cloud; practice says: {ptext[:120]}"})
+    return {
+        "recommendation": f"For {path}, follow the matching Datatonic practices and build on the confirmed estate facts.",
+        "rationale": "Mock rationale: practices first, then best practice, with client rules respected.",
+        "level": "practice" if practices else "best_practice",
+        "practiceIds": [p for p, _ in practices], "claimIds": claims,
+        "alternatives": [{"option": "Lift and shift as-is", "whyNot": "Carries today's cost and complexity forward."}],
+        "assumptions": ["Mock assumption: volumes stay within the stated figures."],
+        "conflicts": conflicts,
+    }
+
+
+def respond(task: str, prompt: str) -> str:
+    fn = {"extraction": _extract, "divergence": _diverge, "questions": _questions, "recommendation": _recommend}.get(task)
+    return json.dumps(fn(prompt) if fn else {"text": "mock"})
