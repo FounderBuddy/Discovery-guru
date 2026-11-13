@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "BriefSlotKey": {
+      "description": "The Brief: the short, agreed statement of what this engagement is for. Starts blank, fills from evidence.",
+      "enum": [
+        "purpose",
+        "value",
+        "measures",
+        "scope",
+        "nonGoals",
+        "shape"
+      ],
+      "title": "BriefSlotKey",
+      "type": "string"
+    },
+    "BriefSlotProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "claimIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claimids",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Gaps",
+          "type": "array"
+        },
+        "key": {
+          "$ref": "#/$defs/BriefSlotKey"
+        },
+        "shapes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Shapes",
+          "type": "array"
+        },
+        "text": {
+          "default": "",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "BriefSlotProposal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "promptVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Promptversion"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "slots": {
+      "items": {
+        "$ref": "#/$defs/BriefSlotProposal"
+      },
+      "title": "Slots",
+      "type": "array"
+    }
+  },
+  "required": [
+    "slots"
+  ],
+  "title": "BriefProposal",
+  "type": "object"
+}

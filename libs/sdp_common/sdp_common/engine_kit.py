@@ -72,3 +72,14 @@ class Run:
 
 def engine_dir(file: str) -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(file)))
+
+
+def brief_text(ctx: dict) -> str:
+    """The Brief as engines read it: status, text and gaps per slot."""
+    lines = []
+    for s in ctx["brief"]["slots"]:
+        body = s["text"] or "-"
+        if s.get("shapes"):
+            body += f" (packs: {', '.join(s['shapes'])})"
+        lines.append(f"{s['key']} [{s['status']}]: {body}" + (f" | gaps: {'; '.join(s['gaps'])}" if s.get("gaps") else ""))
+    return "\n".join(lines)

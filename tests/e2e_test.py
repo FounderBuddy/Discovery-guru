@@ -28,6 +28,10 @@ TRANSCRIPT = """Discovery call, Northwind Telecom (fictional), 3 March
 """
 
 
+def engine_headers(name: str) -> dict:
+    return {"Authorization": f"Bearer {TOKENS[name]}", "X-Actor-Type": "agent", "X-Actor-Id": name}
+
+
 def as_user(uid: str) -> httpx.Client:
     return httpx.Client(base_url=GW, headers={"X-Dev-User": uid}, timeout=120)
 
@@ -58,6 +62,16 @@ def test_1_ingest_and_extract(world):
     assert run["rejected"] >= 1, "the citation check should have discarded the mock's invented quote"
     claims = ok(alex.get(f"/api/engagements/{eid}/claims", params={"status": "proposed"}))
     assert all(c["quote"] and c["sourceId"] == src["id"] for c in claims)
+
+
+def test_1b_brief_starts_blank(world):
+    eid, alex = world["eid"], world["alex"]
+    b = ok(alex.get(f"/api/engagements/{eid}/brief"))
+    assert [s["key"] for s in b["slots"]] == ["purpose", "value", "measures", "scope", "nonGoals", "shape"]
+    assert all(s["status"] == "empty" for s in b["slots"]) and b["appliedPacks"] == ["core"]
+    run = ok(alex.post(f"/api/engagements/{eid}/run/brief"))
+    assert run["accepted"] == 0, "nothing is confirmed yet, so the Brief must stay blank"
+    assert all(s["status"] == "empty" for s in ok(alex.get(f"/api/engagements/{eid}/brief"))["slots"])
 
 
 def test_2_agents_cannot_confirm_or_impersonate(world):
@@ -108,10 +122,44 @@ def test_5_divergence_and_supersession(world):
     assert claims[div["claimA"]]["status"] == "superseded" and claims[div["claimA"]]["supersededBy"] == div["claimB"]
 
 
+def test_5b_brief_fills_from_evidence_and_sets_shape(world):
+    eid, alex, owner = world["eid"], world["alex"], world["owner"]
+    ctx_before = httpx.get(f"{LEDGER}/v1/engagements/{eid}/context", headers=engine_headers("engine-brief")).json()
+    assert not any("native" in p["title"].lower() for p in ctx_before["practices"]), "data-platform practices wait for the shape"
+    run = ok(alex.post(f"/api/engagements/{eid}/run/brief"))
+    assert run["accepted"] >= 3, run
+    b = ok(alex.get(f"/api/engagements/{eid}/brief"))
+    slots = {s["key"]: s for s in b["slots"]}
+    assert slots["purpose"]["status"] == "draft" and slots["purpose"]["claimIds"]
+    assert "data-platform" in slots["shape"]["shapes"] and b["shapeState"] == "tentative"
+    assert "data-platform" in b["appliedPacks"] and any(p["mustKnow"] for p in b["packs"] if p["key"] == "data-platform")
+    assert slots["nonGoals"]["status"] == "empty" and slots["nonGoals"]["gaps"], "no claim says what is out, so it stays blank with a gap"
+    # agreeing is the owner's, and never an engine's
+    r = httpx.post(f"{LEDGER}/v1/engagements/{eid}/brief/purpose/agree", headers=engine_headers("engine-brief"))
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "human_only"
+    assert alex.post(f"/api/engagements/{eid}/brief/purpose/agree").status_code == 403
+    assert owner.post(f"/api/engagements/{eid}/brief/nonGoals/agree").status_code == 409
+    for key in ("purpose", "shape"):
+        assert ok(owner.post(f"/api/engagements/{eid}/brief/{key}/agree"))["status"] == "agreed"
+    # an engine re-run never overwrites what the owner agreed
+    ok(alex.post(f"/api/engagements/{eid}/run/brief"))
+    slots = {s["key"]: s for s in ok(alex.get(f"/api/engagements/{eid}/brief"))["slots"]}
+    assert slots["purpose"]["status"] == "agreed" and slots["shape"]["status"] == "agreed"
+    # people can only cite confirmed claims
+    r = alex.put(f"/api/engagements/{eid}/brief/nonGoals", json={"text": "CRM integration is out.", "claimIds": ["clm_nope"]})
+    assert r.status_code == 422
+    ctx = httpx.get(f"{LEDGER}/v1/engagements/{eid}/context", headers=engine_headers("engine-brief")).json()
+    assert ctx["brief"]["shapeState"] == "agreed"
+    assert any("native" in p["title"].lower() for p in ctx["practices"]), "the agreed shape brings its practices in"
+    world["state"]["purposeClaims"] = slots["purpose"]["claimIds"]
+
+
 def test_6_questions_and_ageing(world):
     eid, alex, owner = world["eid"], world["alex"], world["owner"]
     run = ok(alex.post(f"/api/engagements/{eid}/run/questions"))
     assert run["accepted"] >= 1
+    asked = [o["question"] for o in ok(alex.get(f"/api/engagements/{eid}/open-items"))]
+    assert any("Source systems" in q or "Reports and dashboards" in q for q in asked), "the shape's must-know list drives questions"
     item = ok(alex.get(f"/api/engagements/{eid}/open-items"))[0]
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     ok(alex.patch(f"/api/engagements/{eid}/open-items/{item['id']}", json={"dueDate": yesterday, "ownerId": "u_alex", "outcome": "estimate"}))
@@ -148,18 +196,36 @@ def test_7_recommendation_conflict_is_escalated(world):
 def test_8_lineage_outputs_audit_events(world):
     eid, owner = world["eid"], world["owner"]
     lin = ok(owner.get(f"/api/engagements/{eid}/lineage/recommendation/{world['state']['rec']}"))
-    assert lin["upstream"]["claims"] and lin["upstream"]["run"]["promptVersion"] == "recommend_v1"
+    assert lin["upstream"]["claims"] and lin["upstream"]["run"]["promptVersion"] == "recommend_v2"
     assert any(h["action"] == "approved" for h in lin["history"])
     md = owner.get(f"/api/engagements/{eid}/outputs/discovery-summary")
     assert md.status_code == 200 and "## RULES" in md.text and "multi-cloud" in md.text
+    assert md.text.index("## Brief") < md.text.index("## WHY") and "Data platform" in md.text
     csv = owner.get(f"/api/engagements/{eid}/outputs/claims-register")
     assert csv.text.startswith("id,status,question")
     runs = ok(owner.get(f"/api/engagements/{eid}/runs"))
-    assert {r["engine"] for r in runs} >= {"engine-extraction", "engine-divergence", "engine-questions", "engine-recommendation", "engine-resolution"}
+    assert {r["engine"] for r in runs} >= {"engine-extraction", "engine-divergence", "engine-questions", "engine-recommendation", "engine-resolution", "engine-brief"}
     assert all(r["promptVersion"] for r in runs)
     events = ok(owner.get(f"/api/engagements/{eid}/events"))
     types = {e["type"] for e in events}
-    assert {"sdp.source.added.v1", "sdp.agent.run.completed.v1", "sdp.decision.escalated.v1"} <= types
+    assert {"sdp.source.added.v1", "sdp.agent.run.completed.v1", "sdp.decision.escalated.v1", "sdp.brief.changed.v1"} <= types
     assert all(e["specversion"] == "1.0" for e in events)
     b = ok(owner.get(f"/api/engagements/{eid}/budget"))
     assert b["budgetUsd"] == 10
+
+
+def test_9_agreed_brief_flags_for_review_when_evidence_moves(world):
+    eid, owner = world["eid"], world["owner"]
+    cid = world["state"]["purposeClaims"][0]
+    res = ok(owner.post(f"/api/engagements/{eid}/claims/{cid}/supersede", json={"reason": "Client corrected this on call 2."}))
+    assert "purpose" in res["flaggedForReview"]["brief"]
+    slots = {s["key"]: s for s in ok(owner.get(f"/api/engagements/{eid}/brief"))["slots"]}
+    assert slots["purpose"]["status"] == "needs_review" and slots["purpose"]["reviewReason"]
+    assert owner.post(f"/api/engagements/{eid}/brief/purpose/agree").status_code == 409, "can't re-agree on stale evidence"
+    lin = ok(owner.get(f"/api/engagements/{eid}/lineage/brief/{slots['purpose']['id']}"))
+    assert lin["upstream"]["claims"] and {"drafted", "agreed", "needs_review"} <= {h["action"] for h in lin["history"]}
+    # the engine redrafts a slot under review; the owner agrees the new words
+    ok(world["alex"].post(f"/api/engagements/{eid}/run/brief"))
+    slots = {s["key"]: s for s in ok(owner.get(f"/api/engagements/{eid}/brief"))["slots"]}
+    assert slots["purpose"]["status"] == "draft" and cid not in slots["purpose"]["claimIds"]
+    assert ok(owner.post(f"/api/engagements/{eid}/brief/purpose/agree"))["status"] == "agreed"

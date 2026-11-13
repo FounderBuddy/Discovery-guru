@@ -92,6 +92,12 @@ def _questions(prompt: str) -> dict:
             items.append({"question": f"Is there a documented {m.group(2).lower()} position this solution must follow? Please share the document.",
                           "kind": "artefact", "outcome": "risk", "impact": f"{m.group(2)} guardrails are unknown, so design choices may need rework.",
                           "askRole": "Security or architecture lead", "relatedClaimIds": []})
+    shaped = [l for l in _section(prompt, "MUST KNOW") if "(Every engagement)" not in l]
+    for line in shaped[:4]:
+        m = re.match(r"-\s*(.*)\s+\(([^)]*)\)$", line.strip())
+        if m:
+            items.append({"question": f"Can you share this, please: {m.group(1)}?", "kind": "artefact", "outcome": "insist",
+                          "impact": f"Needed to scope the {m.group(2).lower()} work.", "askRole": "Technical lead", "relatedClaimIds": []})
     for c in _claim_lines(prompt):
         if c["tags"].startswith("why") and "number:" not in c["text"]:
             items.append({"question": f"What is today's baseline for this, as a number? {c['text'][:140]}",
@@ -132,6 +138,43 @@ def _recommend(prompt: str) -> dict:
     }
 
 
+def _brief(prompt: str) -> dict:
+    claims = _claim_lines(prompt)
+    by = lambda q, *kinds: [c for c in claims if c["tags"].startswith(q) and (not kinds or c["tags"].split("/")[-1] in kinds)]
+    why, what, frm = by("why"), by("what"), by("from")
+    numbered = lambda cs: [c for c in cs if NUM.search(c["text"])]
+    slot = lambda key, cs, text, gaps: {"key": key, "text": text if cs else "", "claimIds": [c["id"] for c in cs], "shapes": [], "gaps": [] if cs else gaps}
+    slots = [
+        slot("purpose", (what[:1] + why[:1]), " ".join(c["text"] for c in (what[:1] + why[:1])),
+             ["What the client is trying to achieve, in their words", "Why now: the date or event driving it"]),
+        slot("value", numbered(why)[:2], " ".join(c["text"] for c in numbered(why)[:2]),
+             ["A cost, time or risk figure for today's pain"]),
+        slot("measures", numbered(what)[:3], "; ".join(c["text"] for c in numbered(what)[:3]),
+             ["A measurable target for each outcome", "Today's baseline for each target"]),
+        slot("scope", frm[:3], "Covers: " + "; ".join(c["text"] for c in frm[:3]),
+             ["Which systems, teams and processes are in"]),
+        slot("nonGoals", [c for c in claims if re.search(r"out of scope|not in scope|not part of|excluded", c["text"], re.I)][:2],
+             "; ".join(c["text"] for c in claims if re.search(r"out of scope|not in scope|not part of|excluded", c["text"], re.I)),
+             ["What the client has said is out of scope"]),
+    ]
+    scores, hits = {}, {}
+    for line in _section(prompt, "PACKS"):
+        m = re.match(r"([\w-]+):.*\|\s*signals:\s*(.*)$", line.strip())
+        if not m:
+            continue
+        sigs = [x.strip().lower() for x in m.group(2).split(",") if x.strip()]
+        matched = [c for c in claims if any(re.search(r"\b" + re.escape(sg), c["text"].lower()) for sg in sigs)]
+        if matched:
+            scores[m.group(1)], hits[m.group(1)] = len(matched), matched
+    shapes = [k for k, n in sorted(scores.items(), key=lambda kv: -kv[1]) if n >= 2][:3]
+    cited = list({c["id"]: c for k in shapes for c in hits[k][:3]}.values())
+    slots.append({"key": "shape", "text": f"Signals in the confirmed claims point to: {', '.join(shapes)}." if shapes else "",
+                  "claimIds": [c["id"] for c in cited], "shapes": shapes,
+                  "gaps": [] if shapes else ["What kind of work this is: platform, migration, integration, agents or an application"]})
+    return {"slots": slots}
+
+
 def respond(task: str, prompt: str) -> str:
-    fn = {"extraction": _extract, "divergence": _diverge, "questions": _questions, "recommendation": _recommend}.get(task)
+    fn = {"extraction": _extract, "divergence": _diverge, "questions": _questions, "recommendation": _recommend,
+          "brief": _brief}.get(task)
     return json.dumps(fn(prompt) if fn else {"text": "mock"})

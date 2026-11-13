@@ -16,7 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from sdp_common.auth import Caller, caller_from
-from sdp_common.contracts import (ActorType, AgentRunRecord, ClaimProposal, DivergenceProposal,
+from sdp_common.contracts import (ActorType, AgentRunRecord, BriefProposal, BriefSlotKey, ClaimProposal, DivergenceProposal,
                                   OpenItemProposal, RecommendationProposal, RuleCategory,
                                   StakeholderProposal)
 from sdp_common.events import make_event, publisher
@@ -24,13 +24,26 @@ from sdp_common.service import create_app
 from sdp_common.text import verify_quote
 
 from .authz import require, require_practice_admin
-from .db import (AgentRun, Claim, Decision, Divergence, Engagement, History, Member, OpenItem,
+from .db import (AgentRun, BriefSlot, Claim, Decision, Divergence, Engagement, History, Member, OpenItem,
                  Practice, Recommendation, RuleStatus, SessionLocal, Source, SourceChunk,
                  Stakeholder, User, init_db, new_id, now, snake)
 
 SERVICE = "ledger"
 app = create_app(SERVICE, "The only store: engagements, evidence, claims, decisions and their lineage.")
 CHUNK = 60000
+BRIEF_KEYS = [k.value for k in BriefSlotKey]
+BRIEF_LABELS = {"purpose": "Purpose", "value": "Business value", "measures": "Success measures",
+                "scope": "In scope", "nonGoals": "Out of scope", "shape": "Engagement shape"}
+
+
+def load_packs() -> dict:
+    import yaml
+    path = os.getenv("SDP_PACKS") or os.path.join(os.path.dirname(__file__), "../../../config/packs.yaml")
+    with open(path) as f:
+        return yaml.safe_load(f)["packs"]
+
+
+PACKS = load_packs()
 RULE_LABELS = {
     "regulatory": "Regulatory and compliance", "security": "Security policy",
     "strategic": "Strategic positions", "architecture": "Architectural standards",
@@ -98,7 +111,7 @@ def startup():
             for p in json.load(open(seed)):
                 db.add(Practice(id=new_id("prc"), domain=p["domain"], title=p["title"], statement=p["statement"],
                                 rationale=p.get("rationale", ""), status=p.get("status", "draft"),
-                                updated_by="seed"))
+                                applies_to=p.get("appliesTo", []), updated_by="seed"))
         db.commit()
     finally:
         db.close()
@@ -159,7 +172,6 @@ class EngagementPatch(In):
 
 
 class ProfileIn(In):
-    dataOrTransactional: Literal["data", "transactional", "both", ""] = ""
     market: Literal["b2b", "b2c", "both", ""] = ""
     audiences: str = ""
     notes: str = ""
@@ -199,6 +211,8 @@ def create_engagement(body: EngagementIn, db: Session = Depends(get_db), c: Call
     db.add(Member(engagement_id=e.id, user_id=c.actor.id, role="owner", added_by=c.actor.id))
     for cat in RULE_LABELS:
         db.add(RuleStatus(engagement_id=e.id, category=cat, status="unknown", source_ids=[]))
+    for key in BRIEF_KEYS:  # the Brief starts blank
+        db.add(BriefSlot(id=new_id("brf"), engagement_id=e.id, key=key))
     hist(db, c, e.id, "engagement", e.id, "created", body.model_dump())
     db.commit()
     return engagement_view(db, e, c)
@@ -587,7 +601,12 @@ def patch_claim(eid: str, cid: str, body: ClaimPatch, db: Session = Depends(get_
 
 
 def _flag_downstream(db: Session, c: Caller, eid: str, claim_id: str, reason: str) -> dict:
-    flagged = {"openItems": [], "recommendations": [], "decisions": []}
+    flagged = {"openItems": [], "recommendations": [], "decisions": [], "brief": []}
+    for b in db.scalars(select(BriefSlot).where(BriefSlot.engagement_id == eid)):
+        if claim_id in (b.claim_ids or []) and b.status in ("draft", "agreed"):
+            b.status, b.review_reason = "needs_review", reason
+            flagged["brief"].append(b.key)
+            hist(db, c, eid, "brief", b.id, "needs_review", {"claimId": claim_id, "slot": b.key})
     for oi in db.scalars(select(OpenItem).where(OpenItem.engagement_id == eid)):
         if claim_id in (oi.related_claim_ids or []):
             oi.needs_review = True
@@ -984,6 +1003,163 @@ def delete_rec(eid: str, rid: str, db: Session = Depends(get_db), c: Caller = De
     db.commit()
 
 
+# ------------------------------------------------------------------ the Brief and packs
+
+def _slots(db: Session, eid: str) -> list[BriefSlot]:
+    """The six slots, in order. Created on first read for engagements opened before the Brief existed."""
+    have = {b.key: b for b in db.scalars(select(BriefSlot).where(BriefSlot.engagement_id == eid))}
+    missing = [k for k in BRIEF_KEYS if k not in have]
+    for key in missing:
+        have[key] = BriefSlot(id=new_id("brf"), engagement_id=eid, key=key, status="empty", text="",
+                              shapes=[], claim_ids=[], gaps=[], version=0)
+        db.add(have[key])
+    if missing:
+        db.commit()  # slot ids must be stable for lineage
+    return [have[k] for k in BRIEF_KEYS]
+
+
+def _slot_api(b: BriefSlot) -> dict:
+    return {**b.to_api(), "label": BRIEF_LABELS.get(b.key, b.key)}
+
+
+def _brief_view(db: Session, eid: str) -> dict:
+    slots = _slots(db, eid)
+    shape = next(b for b in slots if b.key == "shape")
+    shapes = [k for k in (shape.shapes or []) if k in PACKS and k != "core"]
+    shape_state = "agreed" if shape.status == "agreed" else "tentative" if shapes else "unknown"
+    applied = ["core"] + shapes
+    return {
+        "slots": [_slot_api(b) for b in slots],
+        "shapeState": shape_state,                # packs apply tentatively from a draft shape, firmly once agreed
+        "appliedPacks": applied,
+        "packs": [{"key": k, **{f: PACKS[k].get(f) for f in ("label", "description", "mustKnow", "askAbout", "paths")}} for k in applied],
+        "agreed": len([b for b in slots if b.status == "agreed"]),
+        "total": len(slots),
+    }
+
+
+class BriefEditIn(In):
+    text: str = ""
+    claimIds: list[str] = Field(default_factory=list)
+    shapes: list[str] = Field(default_factory=list)
+    note: str = ""
+
+
+def _confirmed_ids(db: Session, eid: str) -> set[str]:
+    return {cid for (cid,) in db.execute(select(Claim.id).where(Claim.engagement_id == eid, Claim.status == "confirmed"))}
+
+
+def _emit_brief(bg: BackgroundTasks, b: BriefSlot, eid: str, c: Caller):
+    emit(bg, "sdp.brief.changed.v1", {"slot": b.key, "status": b.status, "version": b.version}, eid, c, b.id)
+
+
+@app.get("/v1/packs", tags=["brief"])
+def list_packs(c: Caller = Depends(caller_dep)):
+    return [{"key": k, **v} for k, v in PACKS.items()]
+
+
+@app.get("/v1/engagements/{eid}/brief", tags=["brief"])
+def get_brief(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "read")
+    out = _brief_view(db, eid)
+    db.commit()
+    return out
+
+
+@app.post("/v1/engagements/{eid}/brief/proposals", tags=["brief"])
+def propose_brief(eid: str, body: BriefProposal, bg: BackgroundTasks, db: Session = Depends(get_db),
+                  c: Caller = Depends(caller_dep)):
+    """An engine's draft. Every slot must rest on confirmed claims. Agreed slots are never overwritten:
+    a different draft is kept beside them as a suggestion for the owner."""
+    require(db, c, eid, "brief.propose")
+    confirmed = _confirmed_ids(db, eid)
+    slots = {b.key: b for b in _slots(db, eid)}
+    accepted, rejected = [], []
+    for p in body.slots:
+        b = slots[p.key.value]
+        ids = [x for x in p.claimIds if x in confirmed]
+        shapes = [k for k in p.shapes if k in PACKS and k != "core"] if p.key.value == "shape" else []
+        b.gaps = p.gaps[:10]
+        if not p.text.strip() or not ids or (p.key.value == "shape" and not shapes):
+            rejected.append({"key": p.key.value, "reason": "No text, no confirmed claims behind it, or no known pack."})
+            continue
+        draft = {"text": p.text.strip(), "claimIds": ids, "shapes": shapes, "runId": body.runId}
+        if b.status == "agreed":
+            if p.text.strip() != (b.text or "") or set(shapes) != set(b.shapes or []):
+                b.suggestion = draft
+                hist(db, c, eid, "brief", b.id, "suggested", draft)
+                accepted.append(b.key)
+            continue
+        b.text, b.claim_ids, b.shapes, b.run_id = draft["text"], ids, shapes, body.runId
+        b.status, b.version, b.drafted_by, b.review_reason, b.suggestion, b.updated_at = "draft", (b.version or 0) + 1, c.actor.id, "", None, now()
+        hist(db, c, eid, "brief", b.id, "drafted", {**draft, "promptVersion": body.promptVersion, "model": body.model})
+        _emit_brief(bg, b, eid, c)
+        accepted.append(b.key)
+    db.commit()
+    return {"accepted": accepted, "rejected": rejected, "brief": _brief_view(db, eid)}
+
+
+def _slot_or_404(db: Session, eid: str, key: str) -> BriefSlot:
+    if key not in BRIEF_KEYS:
+        raise HTTPException(404, {"code": "not_found", "message": f"No Brief slot called {key}."})
+    return next(b for b in _slots(db, eid) if b.key == key)
+
+
+@app.put("/v1/engagements/{eid}/brief/{key}", tags=["brief"])
+def edit_brief(eid: str, key: str, body: BriefEditIn, bg: BackgroundTasks, db: Session = Depends(get_db),
+               c: Caller = Depends(caller_dep)):
+    """A person rewrites a slot. It goes back to draft: agreement is always on the exact words."""
+    require(db, c, eid, "brief.edit")
+    b = _slot_or_404(db, eid, key)
+    confirmed = _confirmed_ids(db, eid)
+    bad = [x for x in body.claimIds if x not in confirmed]
+    if bad:
+        raise HTTPException(422, {"code": "claims", "message": f"Only confirmed claims can back the Brief: {', '.join(bad)}"})
+    shapes = [k for k in body.shapes if k in PACKS and k != "core"]
+    if key == "shape" and len(shapes) != len([k for k in body.shapes if k != "core"]):
+        raise HTTPException(422, {"code": "packs", "message": "Unknown pack in shapes."})
+    before = _slot_api(b)
+    b.text, b.claim_ids, b.shapes = body.text.strip(), body.claimIds, shapes if key == "shape" else []
+    empty = not b.text and not b.shapes
+    b.status = "empty" if empty else "draft"
+    b.version, b.drafted_by, b.run_id, b.review_reason, b.suggestion, b.updated_at = (b.version or 0) + 1, c.actor.id, None, "", None, now()
+    b.agreed_by = b.agreed_at = None
+    hist(db, c, eid, "brief", b.id, "edited", {"before": {k: before[k] for k in ("text", "claimIds", "shapes", "status")},
+                                                "after": body.model_dump(), "note": body.note})
+    _emit_brief(bg, b, eid, c)
+    db.commit()
+    return _slot_api(b)
+
+
+@app.post("/v1/engagements/{eid}/brief/{key}/agree", tags=["brief"])
+def agree_brief(eid: str, key: str, bg: BackgroundTasks, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "brief.agree")
+    b = _slot_or_404(db, eid, key)
+    if b.status == "empty" or not (b.text or b.shapes):
+        raise HTTPException(409, {"code": "state", "message": "There is nothing to agree yet."})
+    confirmed = _confirmed_ids(db, eid)
+    live = [x for x in (b.claim_ids or []) if x in confirmed]
+    if not live:
+        raise HTTPException(409, {"code": "uncited", "message": "Link at least one confirmed claim before agreeing: the Brief must rest on evidence."})
+    if len(live) != len(b.claim_ids or []):
+        raise HTTPException(409, {"code": "stale", "message": "Some claims behind this slot are no longer confirmed. Edit it first."})
+    b.status, b.agreed_by, b.agreed_at, b.review_reason, b.updated_at = "agreed", c.actor.id, now(), "", now()
+    hist(db, c, eid, "brief", b.id, "agreed", {"version": b.version, "text": b.text, "shapes": b.shapes})
+    _emit_brief(bg, b, eid, c)
+    db.commit()
+    return _slot_api(b)
+
+
+@app.post("/v1/engagements/{eid}/brief/{key}/dismiss-suggestion", tags=["brief"])
+def dismiss_suggestion(eid: str, key: str, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "brief.edit")
+    b = _slot_or_404(db, eid, key)
+    hist(db, c, eid, "brief", b.id, "suggestion_dismissed", b.suggestion)
+    b.suggestion = None
+    db.commit()
+    return _slot_api(b)
+
+
 # ------------------------------------------------------------------ practices (Datatonic, global)
 
 class PracticeIn(In):
@@ -992,6 +1168,7 @@ class PracticeIn(In):
     statement: str
     rationale: str = ""
     status: Literal["draft", "active", "retired"] = "active"
+    appliesTo: list[str] = Field(default_factory=list)
 
 
 @app.get("/v1/practices", tags=["practices"])
@@ -1005,7 +1182,8 @@ def list_practices(status: Optional[str] = None, db: Session = Depends(get_db), 
 @app.post("/v1/practices", tags=["practices"], status_code=201)
 def add_practice(body: PracticeIn, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
     require_practice_admin(db, c)
-    p = Practice(id=new_id("prc"), updated_by=c.actor.id, **body.model_dump())
+    data = body.model_dump()
+    p = Practice(id=new_id("prc"), updated_by=c.actor.id, applies_to=data.pop("appliesTo"), **data)
     db.add(p)
     hist(db, c, None, "practice", p.id, "created", body.model_dump())
     db.commit()
@@ -1017,7 +1195,7 @@ def patch_practice(pid: str, body: PracticeIn, db: Session = Depends(get_db), c:
     require_practice_admin(db, c)
     p = get_or_404(db, Practice, pid, what="Practice")
     before = p.to_api()
-    apply(p, body.model_dump())
+    apply(p, body.model_dump())  # apply() maps appliesTo -> applies_to
     p.version, p.updated_by, p.updated_at = p.version + 1, c.actor.id, now()
     hist(db, c, None, "practice", pid, "updated", {"before": before, "after": body.model_dump()})
     db.commit()
@@ -1067,11 +1245,15 @@ def context(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_
     """Everything an engine needs in one packet: what is confirmed, the rules, practices and open questions."""
     require(db, c, eid, "read")
     e = get_or_404(db, Engagement, eid, what="Engagement")
+    brief = _brief_view(db, eid)
+    applied = set(brief["appliedPacks"])
     return {
         "engagement": e.to_api(),
+        "brief": brief,
         "claims": [cl.to_api() for cl in db.scalars(select(Claim).where(Claim.engagement_id == eid, Claim.status == "confirmed"))],
         "rules": get_rules(eid, db, c),
-        "practices": [p.to_api() for p in db.scalars(select(Practice).where(Practice.status == "active"))],
+        "practices": [p.to_api() for p in db.scalars(select(Practice).where(Practice.status == "active"))
+                      if not p.applies_to or applied & set(p.applies_to)],
         "openItems": [oi.to_api() for oi in db.scalars(select(OpenItem).where(OpenItem.engagement_id == eid, OpenItem.status == "open"))],
         "divergences": [d.to_api() for d in db.scalars(select(Divergence).where(Divergence.engagement_id == eid))],
         "stakeholders": [s.to_api() for s in db.scalars(select(Stakeholder).where(Stakeholder.engagement_id == eid))],
@@ -1105,6 +1287,8 @@ def summary(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_
         "escalatedDecisions": len([d for d in decisions if d.status == "escalated"]),
         "recommendationsNeedingReview": len([r for r in recs if r.status in ("needs_review", "blocked")]),
         "needsReview": len([o for o in ois if o["needsReview"]]) + len([d for d in decisions if d.needs_review]),
+        "brief": {st: len([b for b in _slots(db, eid) if b.status == st]) for st in ("empty", "draft", "agreed", "needs_review")},
+        "briefNeedsReview": len([b for b in _slots(db, eid) if b.status == "needs_review"]),
     }
 
 
@@ -1118,7 +1302,7 @@ def _claim_brief(db, cid):
 
 
 @app.get("/v1/engagements/{eid}/lineage/{entity}/{item_id}", tags=["lineage"])
-def lineage(eid: str, entity: Literal["claim", "recommendation", "openitem", "decision", "divergence"], item_id: str,
+def lineage(eid: str, entity: Literal["claim", "recommendation", "openitem", "decision", "divergence", "brief"], item_id: str,
             db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
     """Up to the evidence, down to everything that rests on it, plus the item's full history."""
     require(db, c, eid, "read")
@@ -1136,6 +1320,12 @@ def lineage(eid: str, entity: Literal["claim", "recommendation", "openitem", "de
         down["recommendations"] = [r.to_api() for r in db.scalars(select(Recommendation).where(Recommendation.engagement_id == eid)) if item_id in (r.claim_ids or [])]
         down["decisions"] = [d.to_api() for d in db.scalars(select(Decision).where(Decision.engagement_id == eid)) if item_id in (d.related_claim_ids or [])]
         down["divergences"] = [d.to_api() for d in db.scalars(select(Divergence).where(Divergence.engagement_id == eid, or_(Divergence.claim_a == item_id, Divergence.claim_b == item_id)))]
+        down["brief"] = [_slot_api(b) for b in _slots(db, eid) if item_id in (b.claim_ids or [])]
+    elif entity == "brief":
+        b = get_or_404(db, BriefSlot, item_id, eid, "Brief slot")
+        item = _slot_api(b)
+        up["claims"] = [x for x in (_claim_brief(db, cid) for cid in b.claim_ids or []) if x]
+        up["run"] = db.get(AgentRun, b.run_id).to_api() if b.run_id and db.get(AgentRun, b.run_id) else None
     elif entity == "recommendation":
         r = get_or_404(db, Recommendation, item_id, eid, "Recommendation")
         item = r.to_api()

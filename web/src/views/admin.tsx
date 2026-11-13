@@ -5,6 +5,8 @@ import { Chip, Empty, fmt, Modal, PATHS, useAction, useApp, useLoad } from "../u
 export function Practices() {
   const { me, nameOf } = useApp();
   const { data } = useLoad<any[]>("/practices");
+  const { data: packs } = useLoad<any[]>("/packs");
+  const plabel: Record<string, string> = Object.fromEntries((packs ?? []).map((k) => [k.key, k.label]));
   const { run } = useAction();
   const [edit, setEdit] = useState<any | null>(null);
   const admin = !!me?.isPracticeAdmin;
@@ -12,8 +14,8 @@ export function Practices() {
   return (
     <>
       <div className="spread">
-        <p className="muted">Datatonic's own practices. Recommendations apply these first; where none applies they fall back to best practice, and any clash with a client rule goes to the solution owner. {admin ? "You maintain this page." : "Only practice maintainers can change it."}</p>
-        {admin && <button className="btn primary" onClick={() => setEdit({ domain: PATHS[0], title: "", statement: "", rationale: "", status: "active" })}>Add a practice</button>}
+        <p className="muted">Datatonic's own practices. Recommendations apply the ones that fit the engagement's shape first; where none applies they fall back to best practice, and any clash with a client rule goes to the solution owner. {admin ? "You maintain this page." : "Only practice maintainers can change it."}</p>
+        {admin && <button className="btn primary" onClick={() => setEdit({ domain: PATHS[0], title: "", statement: "", rationale: "", status: "active", appliesTo: [] })}>Add a practice</button>}
       </div>
       {data && !data.length && <Empty>No practices recorded yet.</Empty>}
       {domains.map((d) => (
@@ -23,6 +25,7 @@ export function Practices() {
             <div key={p.id} className="spread" style={{ borderTop: "1px solid var(--line)", paddingTop: 10, alignItems: "flex-start" }}>
               <div className="stack" style={{ gap: 4, flex: 1 }}>
                 <div className="row"><p className="statement">{p.title}</p><Chip tone={p.status === "active" ? "ok" : p.status === "retired" ? "crit" : undefined}>{p.status}</Chip>{p.updatedBy === "seed" && <Chip tone="warn">seeded: needs review</Chip>}</div>
+                <div className="row small">{p.appliesTo?.length ? p.appliesTo.map((k: string) => <Chip key={k}>{plabel[k] ?? k}</Chip>) : <Chip>every engagement</Chip>}</div>
                 <p className="small">{p.statement}</p>
                 {p.rationale && <p className="small muted">{p.rationale}</p>}
                 <p className="prov">v{p.version} · {p.updatedBy === "seed" ? "seed" : nameOf(p.updatedBy)} · {fmt(p.updatedAt)}</p>
@@ -35,7 +38,7 @@ export function Practices() {
       {edit && (
         <Modal title={edit.id ? "Edit practice" : "Add a practice"} onClose={() => setEdit(null)}
           footer={<button className="btn primary" disabled={!edit.title || !edit.statement} onClick={async () => {
-            const body = { domain: edit.domain, title: edit.title, statement: edit.statement, rationale: edit.rationale ?? "", status: edit.status };
+            const body = { domain: edit.domain, title: edit.title, statement: edit.statement, rationale: edit.rationale ?? "", status: edit.status, appliesTo: edit.appliesTo ?? [] };
             await run("p", () => edit.id ? api(`/practices/${edit.id}`, { method: "PATCH", body }) : api("/practices", { body }), "Saved as a new version.");
             setEdit(null);
           }}>Save</button>}>
@@ -44,6 +47,16 @@ export function Practices() {
           <label>Title<input id="pr-t" value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></label>
           <label>Practice<textarea id="pr-s" value={edit.statement} onChange={(e) => setEdit({ ...edit, statement: e.target.value })} /></label>
           <label>Why<textarea id="pr-r" value={edit.rationale ?? ""} onChange={(e) => setEdit({ ...edit, rationale: e.target.value })} style={{ minHeight: 70 }} /></label>
+          <fieldset className="stack" style={{ gap: 6, border: 0, padding: 0 }}>
+            <legend className="small"><strong>Applies to</strong> (none ticked = every engagement)</legend>
+            {(packs ?? []).filter((k) => k.key !== "core").map((k) => (
+              <label key={k.key} className="row small" style={{ gap: 8 }}>
+                <input type="checkbox" checked={(edit.appliesTo ?? []).includes(k.key)}
+                  onChange={(e) => setEdit({ ...edit, appliesTo: e.target.checked ? [...(edit.appliesTo ?? []), k.key] : (edit.appliesTo ?? []).filter((x: string) => x !== k.key) })} />
+                {k.label}
+              </label>
+            ))}
+          </fieldset>
           <label>Status<select id="pr-st" value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })}><option value="active">Active: engines use it</option><option value="draft">Draft: not used yet</option><option value="retired">Retired</option></select></label>
         </Modal>
       )}

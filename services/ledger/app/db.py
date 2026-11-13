@@ -71,7 +71,7 @@ class Engagement(Base):
     sector = Column(String, default="")
     description = Column(Text, default="")
     owner_id = Column(String, nullable=True)
-    profile = Column(JSON, default=dict)          # desired-state profile: dataOrTransactional, market, audiences, notes
+    profile = Column(JSON, default=dict)          # desired-state profile: market, audiences, notes
     ai_budget_usd = Column(Float, default=25.0)   # spend cap for model calls on this engagement
     created_at = ts()
     created_by = Column(String, default="")
@@ -265,8 +265,30 @@ class Practice(Base):
     statement = Column(Text)
     rationale = Column(Text, default="")
     status = Column(String, default="active")     # draft | active | retired
+    applies_to = Column(JSON, default=list)       # pack keys; empty = every engagement
     version = Column(Integer, default=1)
     updated_by = Column(String, default="")
+    updated_at = ts()
+
+
+class BriefSlot(Base):
+    """One slot of the Brief. empty -> draft (engine or person) -> agreed (owner) -> needs_review (evidence moved)."""
+    __tablename__ = "brief_slots"
+    id = Column(String, primary_key=True)
+    engagement_id = Column(String, index=True)
+    key = Column(String)                          # purpose | value | measures | scope | nonGoals | shape
+    status = Column(String, default="empty")
+    text = Column(Text, default="")
+    shapes = Column(JSON, default=list)           # shape slot only: pack keys
+    claim_ids = Column(JSON, default=list)
+    gaps = Column(JSON, default=list)
+    suggestion = Column(JSON, nullable=True)      # a newer engine draft offered for an agreed slot; never applied silently
+    version = Column(Integer, default=0)
+    drafted_by = Column(String, default="")       # actor id of the last draft (engine or person)
+    run_id = Column(String, nullable=True)
+    agreed_by = Column(String, nullable=True)
+    agreed_at = Column(DateTime(timezone=True), nullable=True)
+    review_reason = Column(Text, default="")
     updated_at = ts()
 
 

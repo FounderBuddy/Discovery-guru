@@ -1,0 +1,102 @@
+# Engagement packs. The Brief's "shape" slot names one or more packs once the evidence shows what kind of
+# engagement this is. The applied packs decide:
+#   mustKnow  - what the FROM picture has to cover (the question engine asks for what is missing)
+#   askAbout  - topics the question engine always probes for this shape
+#   paths     - recommendation paths offered on the How page
+#   signals   - words in confirmed claims that suggest this shape (used to propose it, never to decide it)
+# Practices carry `appliesTo` (pack keys); a practice with no appliesTo applies to every engagement.
+# "core" is always applied. Add a pack by adding a block here: no code changes.
+
+packs:
+  core:
+    label: Every engagement
+    paths: [Security and governance, Network and landing zone, Delivery approach]
+    description: What any engagement needs, whatever its shape.
+    signals: []
+    mustKnow:
+      - Business sponsor and the decision-maker who signs
+      - Budget envelope or funding route
+      - Target dates and what drives them (contract end, event, regulation)
+      - Delivery constraints (in-house team, partners, procurement rules)
+    askAbout:
+      - Baseline numbers for every pain point
+      - Who owns each system or process in scope
+
+  data-platform:
+    label: Data platform
+    paths: [Data platform, Ingestion and ETL, Analytics and BI]
+    description: Warehouse, lakehouse, analytics, reporting or a semantic layer.
+    signals: [warehouse, lakehouse, bigquery, snowflake, redshift, report, spreadsheet, single view, dashboard, analytics, power bi, looker, tableau, etl, elt, dbt, pipeline, semantic]
+    mustKnow:
+      - Source systems, with volumes and change rates
+      - Existing warehouse or lake, and its size
+      - Transformation logic and where it lives (ETL tool, stored procedures, spreadsheets)
+      - Reports and dashboards in use, with counts and owners
+      - Data quality and master data issues
+      - Latency needs (batch, hourly, near real time)
+    askAbout:
+      - The list of reports to be rebuilt, and which can be retired
+      - Data classification and residency for each source
+
+  cloud-migration:
+    label: Cloud migration
+    paths: [Migration waves and cutover, Compute and modernisation]
+    description: Moving workloads between data centres and clouds, e.g. AWS to Google Cloud.
+    signals: [migrat, lift and shift, data centre, data center, aws, azure, on-prem, on prem, rehost, replatform, cutover, decommission, ec2, vmware]
+    mustKnow:
+      - Workload inventory (servers, VMs, containers, databases) with sizes
+      - Dependencies between workloads
+      - Current hosting contracts and their end dates
+      - Network connectivity today (VPN, interconnect, IP ranges)
+      - Identity and access setup
+      - Acceptable downtime and cutover windows per workload
+    askAbout:
+      - Which workloads move as-is, which get rebuilt, which retire
+      - Rollback expectations if a cutover fails
+
+  integration-hub:
+    label: Integration hub
+    paths: [Integration, Event and API design]
+    description: Connecting systems through APIs, events or an integration platform.
+    signals: [integration, integrate, api, apis, middleware, mulesoft, boomi, esb, event, kafka, pub/sub, webhook, interface, connector, sync]
+    mustKnow:
+      - Systems to connect, and who owns each
+      - Interfaces today (APIs, files, direct database links), with counts
+      - Message volumes and peak rates
+      - Latency and ordering needs per flow
+      - Error handling and replay expectations
+      - Security model between systems
+    askAbout:
+      - Which system is the source of truth for each shared entity
+      - Change windows and release cadence of each connected system
+
+  ai-agents:
+    label: AI agents
+    paths: [AI and agents, Agent evaluation and guardrails]
+    description: One or more agents or assistants built on language models.
+    signals: [agent, agents, assistant, chatbot, copilot, llm, gen ai, genai, generative, gemini, claude, gpt, rag, automate, automation]
+    mustKnow:
+      - Use cases, each with the user, the task and today's way of doing it
+      - Tools and systems each agent must read or act on
+      - Data each agent may see, and data it must never see
+      - Volume of tasks or conversations per day
+      - Who reviews agent output before it takes effect
+      - How success is judged (evaluation criteria, accuracy bar)
+    askAbout:
+      - Actions an agent may take on its own versus with human approval
+      - A sample set of real cases to evaluate against
+
+  application-build:
+    label: Application build
+    paths: [Application architecture, Hosting and operations]
+    description: A new or rebuilt application, portal or product.
+    signals: [portal, application, app, website, mobile, frontend, front end, user interface, customer-facing, product]
+    mustKnow:
+      - Users and their journeys
+      - Systems the application reads from and writes to
+      - Expected users and peak load
+      - Availability target
+      - Accessibility and branding requirements
+    askAbout:
+      - Which journeys are needed for launch and which can follow
+      - Who accepts the design and the build

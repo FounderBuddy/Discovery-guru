@@ -231,6 +231,31 @@ class RecommendationProposal(_Packet):
     model: Optional[str] = None
 
 
+class BriefSlotKey(str, Enum):
+    """The Brief: the short, agreed statement of what this engagement is for. Starts blank, fills from evidence."""
+    purpose = "purpose"            # one or two sentences: what the client is trying to achieve and why now
+    value = "value"                # the business value, in their terms, with numbers where known
+    measures = "measures"          # how everyone will know it worked: measurable outcomes with baselines
+    scope = "scope"                # what is in
+    non_goals = "nonGoals"         # what is explicitly out
+    shape = "shape"                # what kind of engagement this is: one or more packs (migration, ai-agents, ...)
+
+
+class BriefSlotProposal(_Packet):
+    key: BriefSlotKey
+    text: str = ""
+    claimIds: list[str] = Field(default_factory=list)     # confirmed claims the text rests on: required for a draft
+    shapes: list[str] = Field(default_factory=list)       # pack keys; only for the shape slot
+    gaps: list[str] = Field(default_factory=list)         # what is still missing to complete or strengthen the slot
+
+
+class BriefProposal(_Packet):
+    slots: list[BriefSlotProposal]
+    runId: Optional[str] = None
+    promptVersion: Optional[str] = None
+    model: Optional[str] = None
+
+
 class AgentRunRecord(_Packet):
     id: str
     engine: str
@@ -288,6 +313,12 @@ class DecisionEscalatedData(_Packet):
     recommendationId: Optional[str] = None
 
 
+class BriefChangedData(_Packet):
+    slot: str
+    status: str            # empty | draft | agreed | needs_review
+    version: int
+
+
 class OpenItemEscalatedData(_Packet):
     openItemId: str
     level: int
@@ -302,6 +333,7 @@ EVENT_TYPES: dict[str, type[_Packet]] = {
     "sdp.agent.run.completed.v1": RunCompletedData,
     "sdp.decision.escalated.v1": DecisionEscalatedData,
     "sdp.openitem.escalated.v1": OpenItemEscalatedData,
+    "sdp.brief.changed.v1": BriefChangedData,
 }
 
 PACKETS: dict[str, type[BaseModel]] = {
@@ -315,5 +347,6 @@ PACKETS: dict[str, type[BaseModel]] = {
     "divergence-proposal": DivergenceProposal,
     "open-item-proposal": OpenItemProposal,
     "recommendation-proposal": RecommendationProposal,
+    "brief-proposal": BriefProposal,
     "agent-run-record": AgentRunRecord,
 }

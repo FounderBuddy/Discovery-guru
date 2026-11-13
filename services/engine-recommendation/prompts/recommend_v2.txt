@@ -6,6 +6,8 @@ Order of authority:
 3. Where a hard client rule dictates the answer, follow it. Set level to "client_enforced".
 4. If a client rule conflicts with a Datatonic practice, do NOT resolve it yourself. Report it under "conflicts", naming the practice id and the client rule's claim id. The solution owner decides every conflict.
 
+Serve the BRIEF: the recommendation must advance its purpose and measures, stay inside its scope and respect its non-goals.
+
 Use only the claims below as facts about the client, and cite their ids in "claimIds". Anything you rely on that is not in the claims goes under "assumptions". Give at least one alternative you considered and why you did not choose it.
 
 Return only JSON:
@@ -13,7 +15,10 @@ Return only JSON:
 
 PATH: {{path}}
 
-DESIRED STATE:
+BRIEF:
+{{brief}}
+
+PROFILE:
 {{profile}}
 
 CLIENT RULES:

@@ -3,7 +3,7 @@
 # The tokens below are local-only placeholders; on Cloud Run services authenticate with Google ID tokens instead.
 
 x-tokens: &tokens
-  SDP_SERVICE_TOKENS: '{"api-gateway":"dev-gw","ledger":"dev-ledger","event-bus":"dev-bus","model-gateway":"dev-mg","ingestion":"dev-ing","engine-extraction":"dev-ex","engine-divergence":"dev-dv","engine-questions":"dev-qs","engine-recommendation":"dev-rc","engine-resolution":"dev-rs","engine-artefacts":"dev-ar"}'
+  SDP_SERVICE_TOKENS: '{"api-gateway":"dev-gw","ledger":"dev-ledger","event-bus":"dev-bus","model-gateway":"dev-mg","ingestion":"dev-ing","engine-extraction":"dev-ex","engine-divergence":"dev-dv","engine-questions":"dev-qs","engine-recommendation":"dev-rc","engine-resolution":"dev-rs","engine-artefacts":"dev-ar","engine-brief":"dev-br"}'
 
 x-common: &common
   <<: *tokens
@@ -19,6 +19,7 @@ x-common: &common
   ENGINE_RECOMMENDATION_URL: http://engine-recommendation:8080
   ENGINE_RESOLUTION_URL: http://engine-resolution:8080
   ENGINE_ARTEFACTS_URL: http://engine-artefacts:8080
+  ENGINE_BRIEF_URL: http://engine-brief:8080
 
 x-py: &py
   build: { context: ., dockerfile: deploy/Dockerfile.service }
@@ -95,6 +96,11 @@ services:
     <<: *py
     build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-artefacts } }
     environment: { <<: *common, SDP_SERVICE_TOKEN: dev-ar }
+
+  engine-brief:
+    <<: *py
+    build: { context: ., dockerfile: deploy/Dockerfile.service, args: { SERVICE: engine-brief } }
+    environment: { <<: *common, SDP_SERVICE_TOKEN: dev-br }
 
   api-gateway:
     build: { context: ., dockerfile: deploy/Dockerfile.gateway }

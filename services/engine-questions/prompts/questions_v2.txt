@@ -10,13 +10,24 @@ How to ask:
   risk          = not blocking, outcome uncertain
   pending       = the client's decision, and it gates work
   design_around = the dependency can be removed from scope
+- Cover what the engagement's shape needs: ask for each item under MUST KNOW that the claims do not already answer, and probe each topic under ALWAYS ASK.
+- Turn the Brief's gaps into questions.
 - Do not repeat anything under EXISTING OPEN ITEMS.
 
 Return only JSON:
 {"items":[{"question":"","kind":"number|constraint|owner|decision|artefact","outcome":"insist|estimate|risk|pending|design_around","impact":"what it affects if unanswered","askRole":"who on the client side should answer","relatedClaimIds":[]}]}
 At most 12, most consequential first.
 
-DESIRED STATE:
+BRIEF:
+{{brief}}
+
+MUST KNOW:
+{{mustknow}}
+
+ALWAYS ASK:
+{{askabout}}
+
+PROFILE:
 {{profile}}
 
 RULES CHECKLIST:

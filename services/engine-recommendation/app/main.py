@@ -14,13 +14,13 @@ from pydantic import ValidationError
 from sdp_common.auth import Caller, caller_from
 from sdp_common.clients import ServiceError, ledger
 from sdp_common.contracts import EngineRunRequest, EngineRunResponse, RecommendationProposal
-from sdp_common.engine_kit import Run, engine_dir, load_prompt, render
+from sdp_common.engine_kit import Run, brief_text, engine_dir, load_prompt, render
 from sdp_common.events import make_event, publisher
 from sdp_common.service import create_app
 
 ENGINE = "engine-recommendation"
 app = create_app(ENGINE, "Drafts recommendations per path; escalates practice-versus-client conflicts.")
-PROMPT, PROMPT_VERSION = load_prompt(engine_dir(__file__), "recommend_v1")
+PROMPT, PROMPT_VERSION = load_prompt(engine_dir(__file__), "recommend_v2")
 FIELDS = ("recommendation", "rationale", "level", "practiceIds", "claimIds", "alternatives", "assumptions", "conflicts")
 
 
@@ -38,7 +38,7 @@ async def run_endpoint(req: EngineRunRequest, c: Caller = Depends(caller_dep)):
     rules_txt = "\n".join(f"[{r['id']}] ({r.get('strength') or 'soft'}) {r['statement']}" for r in rules) or "none recorded"
     practices_txt = "\n".join(f"[{p['id']}] {p['domain']} - {p['title']}: {p['statement']}" for p in ctx["practices"]) or "none"
     claims_txt = "\n".join(f"[{x['id']}] ({x['question']}/{x['kind']}) {x['statement']}" for x in ctx["claims"][-250:]) or "none"
-    prompt = render(PROMPT, path=path, profile=json.dumps(ctx["engagement"].get("profile") or {}),
+    prompt = render(PROMPT, path=path, brief=brief_text(ctx), profile=json.dumps(ctx["engagement"].get("profile") or {}),
                     rules=rules_txt, practices=practices_txt, claims=claims_txt)
     try:
         out = await run.model(prompt, tier="complex")

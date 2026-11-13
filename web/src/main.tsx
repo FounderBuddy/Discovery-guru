@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { api, ApiError, devUser } from "./api";
 import { AppCtx, useApp, useLoad, type Ctx } from "./ui";
 import { Engagements, Overview, People } from "./views/core";
+import { Brief } from "./views/brief";
 import { Evidence, Questions, Rules } from "./views/evidence";
 import { Decisions, Divergences, How, OpenItems } from "./views/work";
 import { Governance, Outputs, Practices } from "./views/admin";
@@ -10,6 +11,7 @@ import { Lineage } from "./views/lineage";
 import "./styles.css";
 
 const ENGAGEMENT_ROUTES: { key: string; label: string; badge?: string }[] = [
+  { key: "brief", label: "Brief", badge: "briefNeedsReview" },
   { key: "home", label: "Overview" },
   { key: "people", label: "People" },
   { key: "evidence", label: "Evidence", badge: "proposedClaims" },
@@ -28,7 +30,7 @@ const GLOBAL_ROUTES = [
 ];
 
 function useHash(): [string, (h: string) => void] {
-  const read = () => (location.hash.replace("#", "") || "home");
+  const read = () => (location.hash.replace("#", "") || "brief");
   const [h, setH] = useState(read);
   useEffect(() => {
     const f = () => setH(read());
@@ -74,7 +76,7 @@ function Shell() {
   const view = !app.eid && !GLOBAL_ROUTES.some((r) => r.key === route) ? "engagements" : route;
 
   const V: Record<string, JSX.Element> = {
-    home: <Overview go={go} />, people: <People />, evidence: <Evidence />, questions: <Questions />, rules: <Rules />,
+    brief: <Brief />, home: <Overview go={go} />, people: <People />, evidence: <Evidence />, questions: <Questions />, rules: <Rules />,
     divergences: <Divergences />, openitems: <OpenItems />, how: <How />, decisions: <Decisions />, outputs: <Outputs />,
     practices: <Practices />, governance: <Governance />, engagements: <Engagements go={go} />,
   };
@@ -85,7 +87,7 @@ function Shell() {
         <div className="brand">Discovery Guru<small>Datatonic pre-sales</small></div>
         <label style={{ color: "var(--rail-ink)" }}>
           <span className="small">Engagement</span>
-          <select value={app.eid ?? ""} onChange={(e) => { app.setEid(e.target.value || null); go("home"); }}>
+          <select value={app.eid ?? ""} onChange={(e) => { app.setEid(e.target.value || null); go("brief"); }}>
             <option value="">Choose…</option>
             {(engagements ?? []).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>

@@ -28,6 +28,7 @@ ENGINES = {
     "questions": ("ENGINE_QUESTIONS_URL", "http://localhost:8012", {"owner", "contributor"}),
     "recommendation": ("ENGINE_RECOMMENDATION_URL", "http://localhost:8013", {"owner", "contributor"}),
     "resolution": ("ENGINE_RESOLUTION_URL", "http://localhost:8014", {"owner"}),
+    "brief": ("ENGINE_BRIEF_URL", "http://localhost:8016", {"owner", "contributor"}),
 }
 
 

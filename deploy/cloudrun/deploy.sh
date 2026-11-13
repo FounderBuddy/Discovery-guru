@@ -8,7 +8,7 @@
 #   - Cloud SQL Postgres 16 instance + "ledger" database, password in Secret Manager
 #   - one service account per service (least privilege; each may invoke only what it calls)
 #   - Direct VPC egress + Cloud NAT on the default network (needed for internal ingress)
-#   - 11 Cloud Run services: every one --no-allow-unauthenticated; all but api-gateway ingress=internal
+#   - 12 Cloud Run services: every one --no-allow-unauthenticated; all but api-gateway ingress=internal
 #   - IAP in front of api-gateway (the only door for people)
 #   - Cloud Scheduler job that ages open items daily via engine-resolution /v1/tick
 # Model access: Claude on Vertex AI via the model-gateway service account (roles/aiplatform.user).
@@ -24,7 +24,7 @@ IAP_MEMBERS="${IAP_MEMBERS:?set IAP_MEMBERS, e.g. group:presales@yourco.com}"
 MODEL_DEFAULT="${MODEL_DEFAULT:-claude-vertex}"
 
 SERVICES=(ledger event-bus model-gateway ingestion engine-extraction engine-divergence
-          engine-questions engine-recommendation engine-resolution engine-artefacts api-gateway)
+          engine-questions engine-recommendation engine-resolution engine-artefacts engine-brief api-gateway)
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
@@ -88,7 +88,7 @@ COMMON+=",LEDGER_URL=$(url ledger),EVENT_BUS_URL=$(url event-bus),MODEL_GATEWAY_
 COMMON+=",INGESTION_URL=$(url ingestion),ENGINE_EXTRACTION_URL=$(url engine-extraction)"
 COMMON+=",ENGINE_DIVERGENCE_URL=$(url engine-divergence),ENGINE_QUESTIONS_URL=$(url engine-questions)"
 COMMON+=",ENGINE_RECOMMENDATION_URL=$(url engine-recommendation),ENGINE_RESOLUTION_URL=$(url engine-resolution)"
-COMMON+=",ENGINE_ARTEFACTS_URL=$(url engine-artefacts)"
+COMMON+=",ENGINE_ARTEFACTS_URL=$(url engine-artefacts),ENGINE_BRIEF_URL=$(url engine-brief)"
 
 ENVFILE="$(mktemp)"; trap 'rm -f "$ENVFILE"' EXIT
 
@@ -113,7 +113,7 @@ deploy event-bus internal \
   "SDP_SUBSCRIPTIONS: '{\"sdp.source.added.v1\":[\"$(url engine-extraction)/v1/events\"]}'"
 deploy model-gateway internal "SDP_MODEL_DEFAULT: \"${MODEL_DEFAULT}\"" --memory 1Gi --timeout 600
 deploy ingestion internal "" --memory 1Gi
-for e in extraction divergence questions recommendation resolution artefacts; do
+for e in extraction divergence questions recommendation resolution artefacts brief; do
   deploy "engine-${e}" internal "" --timeout 900
 done
 # VERIFY: direct IAP on Cloud Run is a beta flag at the time of writing.
@@ -135,9 +135,9 @@ for caller in "${SERVICES[@]}"; do
   [[ "$caller" == ledger ]] || grant ledger "$caller"
   [[ "$caller" == ledger || "$caller" == event-bus ]] || grant event-bus "$caller"
 done
-for caller in engine-extraction engine-divergence engine-questions engine-recommendation; do grant model-gateway "$caller"; done
+for caller in engine-extraction engine-divergence engine-questions engine-recommendation engine-brief; do grant model-gateway "$caller"; done
 for e in ingestion engine-extraction engine-divergence engine-questions engine-recommendation \
-         engine-resolution engine-artefacts model-gateway; do grant "$e" api-gateway; done
+         engine-resolution engine-artefacts engine-brief model-gateway; do grant "$e" api-gateway; done
 grant engine-extraction event-bus   # AUTO_EXTRACT push delivery
 
 echo "== Scheduler: daily ageing of open items"

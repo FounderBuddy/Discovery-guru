@@ -43,7 +43,7 @@ async def gather(eid: str) -> dict:
     return {"engagement": await get(""), "claims": await get("/claims"), "sources": await get("/sources"),
             "openItems": await get("/open-items"), "decisions": await get("/decisions"),
             "divergences": await get("/divergences"), "recs": await get("/recommendations"),
-            "rules": await get("/rules"), "stakeholders": await get("/stakeholders")}
+            "rules": await get("/rules"), "stakeholders": await get("/stakeholders"), "brief": await get("/brief")}
 
 
 def header(d: dict, title: str) -> list[str]:
@@ -51,10 +51,29 @@ def header(d: dict, title: str) -> list[str]:
     return [f"# {title}", "", f"**{e['name']}** · {e['client']} · generated {date.today().isoformat()}", ""]
 
 
+STATE = {"empty": "not yet known", "draft": "draft, not agreed", "agreed": "agreed", "needs_review": "needs review: evidence changed"}
+
+
+def brief_section(d: dict) -> list[str]:
+    b = d["brief"]
+    out = ["## Brief", "", f"_{b['agreed']} of {b['total']} slots agreed by the solution owner._", ""]
+    for s in b["slots"]:
+        text = s["text"] or "—"
+        if s["key"] == "shape" and s.get("shapes"):
+            labels = {p["key"]: p["label"] for p in b["packs"]}
+            text = ", ".join(labels.get(k, k) for k in s["shapes"]) + (f". {s['text']}" if s["text"] else "")
+        out += [f"**{s['label']}** ({STATE.get(s['status'], s['status'])}): {text}"]
+        if s.get("gaps") and s["status"] != "agreed":
+            out += [f"  - still to learn: {'; '.join(s['gaps'])}"]
+        out += [""]
+    return out
+
+
 def discovery_summary(d: dict) -> str:
     srcs = {s["id"]: s["title"] for s in d["sources"]}
     live = [c for c in d["claims"] if c["status"] == "confirmed"]
     out = header(d, "Discovery summary")
+    out += brief_section(d)
     people = [s for s in d["stakeholders"] if s["status"] == "confirmed"]
     if people:
         out += ["## People", ""] + [f"- **{p['name']}**{', ' + p['title'] if p['title'] else ''}{' · ' + p['type'] if p['type'] else ''}" for p in people] + [""]

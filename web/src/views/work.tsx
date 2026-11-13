@@ -138,9 +138,11 @@ export function How() {
   const { eid, eng, role, nameOf, openLineage } = useApp();
   const { data: recs } = useLoad<any[]>(`/engagements/${eid}/recommendations`);
   const { data: practices } = useLoad<any[]>(`/practices`);
+  const { data: brief } = useLoad<any>(`/engagements/${eid}/brief`);
+  const paths: string[] = Array.from(new Set((brief?.packs ?? []).flatMap((x: any) => x.paths ?? []))).sort((a, b) => (a as string).localeCompare(b as string)) as string[];
   const { run, busy } = useAction();
   const [profile, setProfile] = useState<any | null>(null);
-  const [path, setPath] = useState(PATHS[0]);
+  const [path, setPath] = useState("");
   const [custom, setCustom] = useState("");
   const pmap = Object.fromEntries((practices ?? []).map((p) => [p.id, p]));
   const p = eng?.profile ?? {};
@@ -148,9 +150,8 @@ export function How() {
   return (
     <>
       <section className="card">
-        <div className="spread"><h2>Desired state</h2>{can.contribute(role) && <button className="btn" onClick={() => setProfile({ dataOrTransactional: p.dataOrTransactional ?? "", market: p.market ?? "", audiences: p.audiences ?? "", notes: p.notes ?? "" })}>Edit</button>}</div>
+        <div className="spread"><h2>Audience</h2>{can.contribute(role) && <button className="btn" onClick={() => setProfile({ market: p.market ?? "", audiences: p.audiences ?? "", notes: p.notes ?? "" })}>Edit</button>}</div>
         <div className="row">
-          <Chip>{p.dataOrTransactional ? { data: "Data-centric", transactional: "Transactional", both: "Data and transactional" }[p.dataOrTransactional as string] : "Data or transactional: not set"}</Chip>
           <Chip>{p.market ? { b2b: "B2B", b2c: "B2C", both: "B2B and B2C" }[p.market as string] : "Market: not set"}</Chip>
           {p.audiences && <Chip>Audiences: {p.audiences}</Chip>}
         </div>
@@ -158,11 +159,11 @@ export function How() {
       </section>
       <section className="card">
         <h2>Draft a recommendation</h2>
-        <p className="small muted">Datatonic practices come first, then best practice, with hard client rules respected. Any conflict between a practice and a client rule goes to the solution owner as a decision; the engine never picks a side.</p>
+        <p className="small muted">Recommendations serve the Brief. Datatonic practices for this engagement's shape come first, then best practice, with hard client rules respected. Any conflict between a practice and a client rule goes to the solution owner as a decision; the engine never picks a side.</p>
         {can.contribute(role) && <div className="row">
-          <select aria-label="Path" value={path} onChange={(e) => setPath(e.target.value)}>{PATHS.map((x) => <option key={x}>{x}</option>)}<option value="custom">Another path…</option></select>
-          {path === "custom" && <input aria-label="Custom path" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Name the path" />}
-          <button className="btn primary" disabled={!!busy || (path === "custom" && !custom)} onClick={() => run("rec", () => api(`/engagements/${eid}/run/recommendation`, { body: { path: path === "custom" ? custom : path } }), (r: any) => r.summary)}>{busy === "rec" ? "Drafting…" : "Draft"}</button>
+          <select aria-label="Path" value={path || paths[0] || "custom"} onChange={(e) => setPath(e.target.value)}>{paths.map((x) => <option key={x}>{x}</option>)}<option value="custom">Another path…</option></select>
+          {(path || paths[0] || "custom") === "custom" && <input aria-label="Custom path" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Name the path" />}
+          <button className="btn primary" disabled={!!busy || ((path || paths[0] || "custom") === "custom" && !custom)} onClick={() => run("rec", () => api(`/engagements/${eid}/run/recommendation`, { body: { path: (path || paths[0] || "custom") === "custom" ? custom : (path || paths[0]) } }), (r: any) => r.summary)}>{busy === "rec" ? "Drafting…" : "Draft"}</button>
         </div>}
       </section>
       {recs && !recs.length && <Empty>No recommendations yet.</Empty>}
@@ -187,9 +188,8 @@ export function How() {
         </section>
       ))}
       {profile && (
-        <Modal title="Desired state" onClose={() => setProfile(null)}
+        <Modal title="Audience" onClose={() => setProfile(null)}
           footer={<button className="btn primary" onClick={async () => { await run("p", () => api(`/engagements/${eid}/profile`, { method: "PUT", body: profile }), "Saved."); setProfile(null); }}>Save</button>}>
-          <label>Data-centric or transactional?<select id="pf-dt" value={profile.dataOrTransactional} onChange={(e) => setProfile({ ...profile, dataOrTransactional: e.target.value })}><option value="">Not known</option><option value="data">Data-centric</option><option value="transactional">Transactional</option><option value="both">Both</option></select></label>
           <label>Market<select id="pf-m" value={profile.market} onChange={(e) => setProfile({ ...profile, market: e.target.value })}><option value="">Not known</option><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="both">Both</option></select></label>
           <label>Target audiences<input id="pf-a" value={profile.audiences} onChange={(e) => setProfile({ ...profile, audiences: e.target.value })} placeholder="e.g. internal finance and sales; enterprise customers through a portal" /></label>
           <label>Notes<textarea id="pf-n" value={profile.notes} onChange={(e) => setProfile({ ...profile, notes: e.target.value })} /></label>

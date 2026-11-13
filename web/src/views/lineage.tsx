@@ -3,7 +3,7 @@ import { Chip, fmt, useApp, useLoad } from "../ui";
 const ACTION_LABEL: Record<string, string> = {
   proposed: "proposed", confirmed: "confirmed", rejected: "rejected", edited: "edited", superseded: "superseded",
   entered: "entered by hand", drafted: "drafted", approved: "approved", escalated: "escalated", decided: "decided",
-  needs_review: "flagged for review", unblocked: "unblocked", created: "created", updated: "updated", resolved: "resolved",
+  needs_review: "flagged for review", agreed: "agreed", suggested: "suggested an update", suggestion_dismissed: "dismissed a suggestion", unblocked: "unblocked", created: "created", updated: "updated", resolved: "resolved",
 };
 
 function ClaimRef({ c }: { c: any }) {
@@ -31,7 +31,7 @@ export function Lineage({ entity, id, onClose }: { entity: string; id: string; o
       {item && <>
         <div className="card accent">
           <Chip>{entity}</Chip>
-          <p className="statement">{item.statement ?? item.recommendation ?? item.question ?? item.title ?? item.explanation}</p>
+          <p className="statement">{item.statement ?? item.recommendation ?? item.question ?? item.title ?? item.explanation ?? (item.label ? `${item.label}: ${item.text || (item.shapes ?? []).join(", ")}` : "")}</p>
           {item.quote && <blockquote className="quote" style={{ margin: 0 }}>“{item.quote}”</blockquote>}
           <p className="prov">status: {item.status}</p>
         </div>
@@ -48,6 +48,7 @@ export function Lineage({ entity, id, onClose }: { entity: string; id: string; o
         {(down.openItems ?? []).map((o: any) => <p key={o.id} className="small"><Chip>open item</Chip> <button className="btn link" onClick={() => openLineage("openitem", o.id)}>{o.question}</button></p>)}
         {(down.recommendations ?? []).map((r: any) => <p key={r.id} className="small"><Chip>recommendation</Chip> <button className="btn link" onClick={() => openLineage("recommendation", r.id)}>{r.path}</button> · {r.status}</p>)}
         {(down.decisions ?? []).map((d: any) => <p key={d.id} className="small"><Chip>decision</Chip> <button className="btn link" onClick={() => openLineage("decision", d.id)}>ADR-{String(d.number).padStart(3, "0")} {d.title}</button></p>)}
+        {(down.brief ?? []).map((b: any) => <p key={b.id} className="small"><Chip tone="accent">Brief</Chip> <button className="btn link" onClick={() => openLineage("brief", b.id)}>{b.label}</button> · {b.status.replace("_", " ")}</p>)}
         {(down.divergences ?? []).map((d: any) => <p key={d.id} className="small"><Chip tone="crit">divergence</Chip> {d.explanation}</p>)}
         {!Object.values(down).some((v: any) => (Array.isArray(v) ? v.length : v)) && <p className="small muted">Nothing depends on this yet.</p>}
         <h3>History</h3>

@@ -57,6 +57,8 @@ export function Overview({ go }: { go: (h: string) => void }) {
   const { data: budget } = useLoad<any>(`/engagements/${eid}/budget`);
   if (!s) return <p className="muted">Loading…</p>;
   const attention = [
+    { n: s.brief?.needs_review ?? 0, text: "parts of the Brief need review because their evidence changed", to: "brief", tone: "warn" as const },
+    { n: s.brief?.draft ?? 0, text: "parts of the Brief drafted and waiting for the solution owner", to: "brief", tone: "accent" as const },
     { n: s.proposedClaims, text: "proposed claims waiting for review", to: "evidence", tone: "accent" as const },
     { n: s.openDivergences, text: "contradictions for the solution owner to resolve", to: "divergences", tone: "crit" as const },
     { n: s.overdueItems, text: "open items past their deadline", to: "openitems", tone: "crit" as const },

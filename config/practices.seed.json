@@ -1,11 +1,120 @@
 [
-  {"domain": "Network and landing zone", "title": "Infrastructure as code from the first resource", "statement": "Every cloud resource is created by Terraform from day one; nothing is created by hand, so environments are reproducible and four environments cost little more than one.", "rationale": "Seed practice drafted from earlier proposal work. Review and confirm.", "status": "active"},
-  {"domain": "Network and landing zone", "title": "Reference landing zone, adapted not bespoke", "statement": "Start from the Datatonic reference landing zone and adapt it; a bespoke landing zone or one imposed by the client's enterprise architecture is a scope change.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Network and landing zone", "title": "HA VPN first, interconnect in parallel", "statement": "Carry the first data flows over HA VPN; order dedicated interconnect in parallel and keep it off the critical path, with routing designed so the switch is a swap.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Data platform", "title": "Google Cloud native managed services by default", "statement": "Build the data platform on Google Cloud native managed services only: BigQuery, Dataform, Composer and Looker, unless a client rule says otherwise.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Data platform", "title": "The semantic layer is the only path to data", "statement": "Reports, embedded analytics and AI read governed definitions in the semantic layer, never raw tables, so every answer agrees with every report.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Data platform", "title": "Retention tiered by access pattern", "statement": "Tier data retention into immediately queryable, hot and cold storage according to how it is actually used.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Ingestion and ETL", "title": "Port transform logic like for like", "statement": "Existing transformation logic is ported as it behaves today; redesign or correction during the port is a change.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "Security and governance", "title": "One-way log forwarding; the SOC perimeter stays with the client", "statement": "Forward platform logs one way to the client's existing SIEM; monitoring, triage and response remain the client's.", "rationale": "Seed practice. Review and confirm.", "status": "active"},
-  {"domain": "AI and agents", "title": "Agents propose, people confirm", "statement": "Agents may draft and propose; nothing an agent produces becomes a fact, a decision or a price until a named person confirms it.", "rationale": "Seed practice. Review and confirm.", "status": "active"}
+  {
+    "domain": "Network and landing zone",
+    "title": "Infrastructure as code from the first resource",
+    "statement": "Every cloud resource is created by Terraform from day one; nothing is created by hand, so environments are reproducible and four environments cost little more than one.",
+    "rationale": "Seed practice drafted from earlier proposal work. Review and confirm.",
+    "status": "active",
+    "appliesTo": []
+  },
+  {
+    "domain": "Network and landing zone",
+    "title": "Reference landing zone, adapted not bespoke",
+    "statement": "Start from the Datatonic reference landing zone and adapt it; a bespoke landing zone or one imposed by the client's enterprise architecture is a scope change.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": []
+  },
+  {
+    "domain": "Network and landing zone",
+    "title": "HA VPN first, interconnect in parallel",
+    "statement": "Carry the first data flows over HA VPN; order dedicated interconnect in parallel and keep it off the critical path, with routing designed so the switch is a swap.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "cloud-migration",
+      "data-platform",
+      "integration-hub"
+    ]
+  },
+  {
+    "domain": "Data platform",
+    "title": "Google Cloud native managed services by default",
+    "statement": "Build the data platform on Google Cloud native managed services only: BigQuery, Dataform, Composer and Looker, unless a client rule says otherwise.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "data-platform"
+    ]
+  },
+  {
+    "domain": "Data platform",
+    "title": "The semantic layer is the only path to data",
+    "statement": "Reports, embedded analytics and AI read governed definitions in the semantic layer, never raw tables, so every answer agrees with every report.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "data-platform"
+    ]
+  },
+  {
+    "domain": "Data platform",
+    "title": "Retention tiered by access pattern",
+    "statement": "Tier data retention into immediately queryable, hot and cold storage according to how it is actually used.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "data-platform"
+    ]
+  },
+  {
+    "domain": "Ingestion and ETL",
+    "title": "Port transform logic like for like",
+    "statement": "Existing transformation logic is ported as it behaves today; redesign or correction during the port is a change.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "data-platform",
+      "cloud-migration"
+    ]
+  },
+  {
+    "domain": "Security and governance",
+    "title": "One-way log forwarding; the SOC perimeter stays with the client",
+    "statement": "Forward platform logs one way to the client's existing SIEM; monitoring, triage and response remain the client's.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": []
+  },
+  {
+    "domain": "AI and agents",
+    "title": "Agents propose, people confirm",
+    "statement": "Agents may draft and propose; nothing an agent produces becomes a fact, a decision or a price until a named person confirms it.",
+    "rationale": "Seed practice. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "ai-agents"
+    ]
+  },
+  {
+    "domain": "Integration",
+    "title": "Contracts first for every interface",
+    "statement": "Every interface has a versioned schema agreed before build; breaking changes ship as a new version alongside the old one.",
+    "rationale": "Seed practice drafted from earlier proposal work. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "integration-hub",
+      "ai-agents"
+    ]
+  },
+  {
+    "domain": "Migration",
+    "title": "Move in waves with a rehearsed rollback",
+    "statement": "Workloads move in small waves grouped by dependency; each wave has a rollback rehearsed before cutover.",
+    "rationale": "Seed practice drafted from earlier proposal work. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "cloud-migration"
+    ]
+  },
+  {
+    "domain": "AI and agents",
+    "title": "Evaluate against real cases before go-live",
+    "statement": "Each agent is measured against a set of real, client-supplied cases with an agreed accuracy bar before it acts on anything.",
+    "rationale": "Seed practice drafted from earlier proposal work. Review and confirm.",
+    "status": "active",
+    "appliesTo": [
+      "ai-agents"
+    ]
+  }
 ]

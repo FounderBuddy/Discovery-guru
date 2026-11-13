@@ -28,6 +28,7 @@ SERVICES = [
     ("ledger", 8001), ("event-bus", 8002), ("model-gateway", 8003), ("ingestion", 8004),
     ("engine-extraction", 8010), ("engine-divergence", 8011), ("engine-questions", 8012),
     ("engine-recommendation", 8013), ("engine-resolution", 8014), ("engine-artefacts", 8015),
+    ("engine-brief", 8016),
     ("api-gateway", 8000),
 ]
 PORT = dict(SERVICES)
@@ -50,6 +51,7 @@ def base_env(model: str, tokens: dict[str, str]) -> dict[str, str]:
         "ENGINE_EXTRACTION_URL": url("engine-extraction"), "ENGINE_DIVERGENCE_URL": url("engine-divergence"),
         "ENGINE_QUESTIONS_URL": url("engine-questions"), "ENGINE_RECOMMENDATION_URL": url("engine-recommendation"),
         "ENGINE_RESOLUTION_URL": url("engine-resolution"), "ENGINE_ARTEFACTS_URL": url("engine-artefacts"),
+        "ENGINE_BRIEF_URL": url("engine-brief"),
         "BUS_BACKEND": "http",
         "SDP_SUBSCRIPTIONS": json.dumps({"sdp.source.added.v1": [url("engine-extraction") + "/v1/events"]}),
         "AUTO_EXTRACT": os.getenv("AUTO_EXTRACT", "false"),
@@ -59,6 +61,7 @@ def base_env(model: str, tokens: dict[str, str]) -> dict[str, str]:
         "BUS_DB_PATH": str(DATA / "bus.db"),
         "SDP_DEV_USERS": json.dumps(DEV_USERS),
         "SDP_SEED_PRACTICES": str(ROOT / "config" / "practices.seed.json"),
+        "SDP_PACKS": str(ROOT / "config" / "packs.yaml"),
         "WEB_DIST": str(ROOT / "web" / "dist"),
         "AUTH_MODE": "dev",
         "PYTHONPATH": str(ROOT / "libs" / "sdp_common"),

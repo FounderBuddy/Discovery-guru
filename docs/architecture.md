@@ -56,9 +56,31 @@ themselves. So a compromised engine can propose, never confirm.
 
 `Engagement` → `Member` (role) · `Stakeholder` · `Source` → `SourceChunk` · `Claim` (question, kind,
 quote, status, supersededBy) · `RuleStatus` · `OpenItem` (owner, ageing, resolution path) ·
-`Divergence` · `Decision` (incl. escalated conflicts) · `Recommendation` (level, conflicts, status) ·
-`Practice` (Datatonic practice library) · `AgentRun` (prompt version, model, tokens, cost) · `History`
+`Divergence` · `Decision` (incl. escalated conflicts) · `BriefSlot` (status, text, shapes, cited claims, gaps, suggestion) · `Recommendation` (level, conflicts, status) ·
+`Practice` (Datatonic practice library, with `appliesTo` packs) · `AgentRun` (prompt version, model, tokens, cost) · `History`
 (append-only, every change, who and why).
+
+## The Brief and engagement shape
+
+The Brief is six slots: purpose, value, measures, scope, nonGoals, shape. Each moves through
+`empty → draft → agreed`, and back to `needs_review` when a claim it cites is superseded.
+
+- **Drafts** come from engine-brief (from confirmed claims only, citing their ids) or from a person.
+  A slot with no confirmed claims behind it stays empty, with "still to find out" gaps that feed the
+  question engine.
+- **Agreement** is the solution owner's alone, on the exact words, and only while every cited claim is
+  still confirmed. Editing an agreed slot puts it back to draft.
+- **An engine never overwrites an agreed slot.** A different draft is stored beside it as a
+  `suggestion` the owner can use or dismiss.
+- **Shape** is a list of pack keys from `config/packs.yaml`. A drafted shape applies its packs
+  *tentatively*; an agreed shape applies them firmly. The ledger's `/context` packet carries the Brief and
+  the applied packs, so every engine sees them:
+  - the question engine asks for each pack's `mustKnow` items the claims don't cover, and its `askAbout` topics;
+  - the recommendation engine gets only practices whose `appliesTo` matches the applied packs
+    (a practice with no `appliesTo` applies everywhere), and serves the Brief's purpose, scope and non-goals;
+  - the How page offers each pack's `paths`.
+
+"core" is always applied. Adding a kind of engagement means adding a pack block: no code changes.
 
 ## Recommendation levels and conflicts
 
@@ -76,6 +98,13 @@ Open items age daily (Cloud Scheduler → engine-resolution `/v1/tick`). Past th
 resolution engine proposes one of five paths: **insist** (chase), **estimate** (assume and flag),
 **risk** (carry as a named risk), **pending decision** (escalate), **design around** (make the
 design independent of the answer). Policy is versioned (`policy-v1`).
+
+## Schema changes
+
+There are no database migrations yet: the ledger creates tables on start. This release adds the
+`brief_slots` table (created automatically) and a `practices.applies_to` column (not added to an existing
+database automatically). Nothing is deployed yet, so start fresh; add Alembic before the first real
+deployment holds data worth keeping.
 
 ## Moving to Pub/Sub
 
