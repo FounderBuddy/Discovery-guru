@@ -2,7 +2,8 @@
 """Run the whole platform locally as separate processes, one per service, wired by URL and token.
 
     python scripts/dev.py            # mock model, keeps data between runs
-    python scripts/dev.py --fresh    # wipe local data first
+    python scripts/dev.py --fresh    # wipe local data first (and the Postgres schema, if LEDGER_DB_URL points at one)
+    LEDGER_DB_URL=postgresql+psycopg://sdp:sdp-local@localhost:5432/ledger python scripts/dev.py   # Postgres instead of SQLite
     python scripts/dev.py --model claude-api   # use a real provider from config/models.yaml
 
 Then open http://localhost:8000 (after `npm run build` in web/) or run the web dev server.
@@ -23,6 +24,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
+LEDGER_DB_URL = os.getenv("LEDGER_DB_URL") or f"sqlite:///{DATA / 'ledger.db'}"
+
+
+def wipe_postgres(url: str) -> None:
+    """--fresh on Postgres: drop and recreate the public schema (dev databases only)."""
+    import sqlalchemy as sa
+    eng = sa.create_engine(url)
+    with eng.begin() as c:
+        c.execute(sa.text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
+    eng.dispose()
 
 SERVICES = [
     ("ledger", 8001), ("event-bus", 8002), ("model-gateway", 8003), ("ingestion", 8004),
@@ -57,7 +68,7 @@ def base_env(model: str, tokens: dict[str, str]) -> dict[str, str]:
         "AUTO_EXTRACT": os.getenv("AUTO_EXTRACT", "false"),
         "SDP_MODEL_DEFAULT": model,
         "MODELS_CONFIG": str(ROOT / "config" / "models.yaml"),
-        "LEDGER_DB_URL": f"sqlite:///{DATA / 'ledger.db'}",
+        "LEDGER_DB_URL": LEDGER_DB_URL,
         "BUS_DB_PATH": str(DATA / "bus.db"),
         "SDP_DEV_USERS": json.dumps(DEV_USERS),
         "SDP_SEED_PRACTICES": str(ROOT / "config" / "practices.seed.json"),
@@ -87,6 +98,8 @@ def main() -> None:
     args = ap.parse_args()
     if args.fresh and DATA.exists():
         shutil.rmtree(DATA)
+    if args.fresh and LEDGER_DB_URL.startswith("postgresql"):
+        wipe_postgres(LEDGER_DB_URL)
     DATA.mkdir(exist_ok=True)
     (DATA / "logs").mkdir(exist_ok=True)
     tokens = {name: secrets.token_hex(16) for name, _ in SERVICES}

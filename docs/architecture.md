@@ -101,10 +101,10 @@ design independent of the answer). Policy is versioned (`policy-v1`).
 
 ## Schema changes
 
-There are no database migrations yet: the ledger creates tables on start. This release adds the
-`brief_slots` table (created automatically) and a `practices.applies_to` column (not added to an existing
-database automatically). Nothing is deployed yet, so start fresh; add Alembic before the first real
-deployment holds data worth keeping.
+The ledger schema is managed by Alembic (`services/ledger/migrations/`, baseline `0001`). The ledger runs
+`upgrade head` on every start, under a Postgres advisory lock so concurrent Cloud Run instances don't race.
+A database created before migrations existed is refused with a clear message: start it fresh.
+Every model change ships with a migration (`make db-revision`), and `make db-check` fails if they drift.
 
 ## Moving to Pub/Sub
 

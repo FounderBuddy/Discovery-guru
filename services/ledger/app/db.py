@@ -331,5 +331,31 @@ class History(Base):
     payload = Column(JSON, default=dict)
 
 
+MIGRATIONS = os.path.join(os.path.dirname(__file__), "..", "migrations")
+
+
 def init_db() -> None:
-    Base.metadata.create_all(engine)
+    """Bring the schema to the latest migration. Safe to run from many instances at once: on Postgres
+    an advisory lock makes the others wait while one migrates."""
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect, text
+
+    cfg = Config()
+    cfg.set_main_option("script_location", MIGRATIONS)
+    with engine.connect() as conn:
+        pg = conn.dialect.name == "postgresql"
+        if pg:
+            conn.execute(text("SELECT pg_advisory_lock(727001)"))
+        try:
+            tables = set(inspect(conn).get_table_names())
+            if tables and "alembic_version" not in tables:
+                raise RuntimeError("This ledger database was created before migrations existed. "
+                                   "Start fresh (python3 scripts/dev.py --fresh, or drop the database).")
+            cfg.attributes["connection"] = conn
+            command.upgrade(cfg, "head")
+            conn.commit()
+        finally:
+            if pg:
+                conn.execute(text("SELECT pg_advisory_unlock(727001)"))
+                conn.commit()

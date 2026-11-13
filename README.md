@@ -58,6 +58,22 @@ and are exported as JSON Schema to [`contracts/`](contracts/). See [docs/archite
 
 ## Run it
 
+**0. GitHub Codespaces (recommended to start)**
+
+Create a codespace on this repo (Code → Codespaces → Create). The dev container starts a Postgres 16
+database next to the app and runs `make install web` for you. Then:
+
+```bash
+make dev          # all 12 services against Postgres; keeps data between runs (make dev-fresh wipes it)
+make test         # in a second terminal: 11 end-to-end tests
+```
+
+Open the forwarded port 8000 and pick a dev user. Keep that port **private** (the default): local sign-in
+trusts whoever reaches it. To use a real model instead of the mock, add `ANTHROPIC_API_KEY` as a Codespaces
+secret and run `python3 scripts/dev.py --model claude-api`.
+
+You don't create any tables: the ledger migrates its database to the latest schema every time it starts.
+
 **1. In one process tree (fastest, SQLite, mock model)**
 
 ```bash
@@ -91,6 +107,20 @@ Cloud Run for every service, Cloud SQL Postgres for the ledger, Secret Manager f
 Vertex AI for Claude, IAP for sign-in, Cloud Scheduler for daily ageing. Only `api-gateway` takes
 traffic from outside; everything else is internal-ingress and IAM-invoker restricted.
 Read the `VERIFY` notes in the script before the first run.
+
+## Database
+
+The ledger is the only service with a database. SQLite by default, Postgres whenever `LEDGER_DB_URL` points at
+one (Codespaces, docker compose, Cloud SQL). The schema is managed with Alembic migrations in
+`services/ledger/migrations/`, applied automatically on start (an advisory lock stops two instances
+migrating at once). After changing `services/ledger/app/db.py`:
+
+```bash
+make db-revision m="what changed"   # writes a new migration; read it before committing
+make db-check                       # models and migrations agree
+```
+
+The event bus keeps a small delivery log in SQLite; it is a log, not a source of truth.
 
 ## Switching models
 

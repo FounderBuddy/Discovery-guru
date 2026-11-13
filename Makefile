@@ -1,4 +1,4 @@
-.PHONY: install web dev test schemas schemas-check compose deploy
+.PHONY: install web dev dev-fresh test schemas schemas-check db-check db-revision compose deploy
 
 install:
 	pip install -e libs/sdp_common
@@ -7,7 +7,12 @@ install:
 web:
 	cd web && npm ci && npm run build
 
+# Keeps your data between runs. Uses Postgres if LEDGER_DB_URL is set (it is, in Codespaces), else SQLite.
 dev:
+	python3 scripts/dev.py
+
+# Wipes all data first (and the Postgres schema).
+dev-fresh:
 	python3 scripts/dev.py --fresh
 
 test:
@@ -24,3 +29,11 @@ compose:
 
 deploy:
 	./deploy/cloudrun/deploy.sh
+
+# Check the ledger models and its migrations agree (run before committing a model change).
+db-check:
+	cd services/ledger && alembic check
+
+# After changing services/ledger/app/db.py:  make db-revision m="add widget table"
+db-revision:
+	cd services/ledger && alembic revision --autogenerate -m "$(m)"

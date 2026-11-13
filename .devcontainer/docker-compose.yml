@@ -1,0 +1,22 @@
+# Dev container only. The app container shares the database container's network,
+# so Postgres is reachable on localhost:5432 from your terminal and from the services.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    network_mode: service:db
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sdp
+      POSTGRES_PASSWORD: sdp-local
+      POSTGRES_DB: ledger
+    volumes:
+      - ledger-data:/var/lib/postgresql/data
+
+volumes:
+  ledger-data: {}
