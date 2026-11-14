@@ -4,8 +4,8 @@
 
 | Role | Can |
 |---|---|
-| **owner** (solution owner) | everything: agree the Brief, invite and remove people, set the profile and budget, resolve divergences, run the resolution engine, delete sources, plus all below |
-| **contributor** | add sources, run engines, draft and edit the Brief, propose/edit/confirm/reject claims, stakeholders, rules, open items, decisions, recommendations |
+| **owner** (solution owner) | everything: agree the Brief, approve the Discovery Plan, invite and remove people, set the profile and budget, resolve divergences, run the resolution engine, delete sources, plus all below |
+| **contributor** | add sources, run engines, draft and edit the Brief, build plans and track their questions, propose/edit/confirm/reject claims, stakeholders, rules, open items, decisions, recommendations |
 | **reviewer** | read everything, write decisions and open items, approve recommendations |
 | **observer** | read only |
 
@@ -23,6 +23,9 @@ Practice library edits need `isPracticeAdmin` on the user, separate from engagem
 - Bulk confirmation (`confirm-high`) only touches high-confidence proposals; everything else is
   confirmed one by one.
 - A source cannot be deleted while a confirmed claim cites it.
+- The Discovery Plan's time budget is enforced twice: by the planner and again by the ledger. Only the owner
+  approves a plan; engines can only write new draft versions. The client-facing download leaves out our
+  internal hours, risks and nominations.
 - Superseding a claim marks every open item, recommendation, decision and Brief slot built on it `needs_review`.
 - Every write appends to `History` with actor, correlation id, before/after and reason.
 - Each agent run records prompt version, model, tokens and cost (`AgentRun`); per-engagement spend

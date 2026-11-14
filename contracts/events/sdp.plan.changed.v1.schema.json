@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "description": "The `data` payload of a sdp.plan.changed.v1 CloudEvent.",
+  "properties": {
+    "format": {
+      "title": "Format",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "status",
+    "format"
+  ],
+  "title": "PlanChangedData",
+  "type": "object"
+}

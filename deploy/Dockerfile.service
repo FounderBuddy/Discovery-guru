@@ -3,7 +3,7 @@ FROM python:3.12-slim
 ARG SERVICE
 ENV PYTHONUNBUFFERED=1 PORT=8080 SDP_SERVICE_NAME=${SERVICE} \
     MODELS_CONFIG=/srv/config/models.yaml SDP_SEED_PRACTICES=/srv/config/practices.seed.json \
-    SDP_PACKS=/srv/config/packs.yaml
+    SDP_PACKS=/srv/config/packs.yaml SDP_CONFIG_DIR=/srv/config
 WORKDIR /srv
 COPY libs/sdp_common /srv/libs/sdp_common
 RUN pip install --no-cache-dir /srv/libs/sdp_common

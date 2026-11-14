@@ -3,6 +3,9 @@
 #   mustKnow  - what the FROM picture has to cover (the question engine asks for what is missing)
 #   askAbout  - topics the question engine always probes for this shape
 #   paths     - recommendation paths offered on the How page
+#   ourRoles  - who from our side this shape needs in discovery (keys from roles.yaml)
+#   sessions  - session templates for the Discovery Plan. minDepth: 1 single call, 2 workshop, 3 deep discovery.
+#               At depth 1 all templates fold into one call; their agendas become sections of it.
 #   signals   - words in confirmed claims that suggest this shape (used to propose it, never to decide it)
 # Practices carry `appliesTo` (pack keys); a practice with no appliesTo applies to every engagement.
 # "core" is always applied. Add a pack by adding a block here: no code changes.
@@ -21,6 +24,59 @@ packs:
     askAbout:
       - Baseline numbers for every pain point
       - Who owns each system or process in scope
+    ourRoles: [account-lead, solution-architect]
+    sessions:
+      - key: kickoff
+        title: Business context and outcomes
+        covers: [why, what]
+        minutes: 90
+        minDepth: 1
+        clientRoles: [sponsor, business-owner, it-lead]
+        ourRoles: [account-lead, solution-architect]
+        agenda: [Why now and what is driving it, What good looks like and how it will be measured, Constraints, dates and decision process]
+      - key: current-state
+        title: Current-state walkthrough
+        covers: [from]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [it-lead, infra-owner]
+        ourRoles: [solution-architect]
+        agenda: [Landscape overview, Pain points by system, Who owns what]
+      - key: guardrails
+        title: Security, policies and guardrails
+        covers: [rules]
+        minutes: 60
+        minDepth: 2
+        clientRoles: [security-owner, it-lead]
+        ourRoles: [solution-architect, security-architect]
+        agenda: [Mandatory standards and policies, Data classification and residency, Approval processes]
+      - key: delivery
+        title: Delivery, commercials and ways of working
+        covers: [how]
+        minutes: 45
+        minDepth: 2
+        clientRoles: [sponsor, procurement]
+        ourRoles: [account-lead, delivery-lead]
+        agenda: [Budget envelope and funding route, Procurement steps, Team and ways of working]
+      - key: midpoint
+        title: Mid-point playback
+        covers: [why, what, rules, from]
+        minutes: 60
+        minDepth: 3
+        minDays: 10
+        clientRoles: [sponsor, it-lead]
+        ourRoles: [solution-architect, delivery-lead]
+        agenda: [What we heard, What we still need, Early options]
+      - key: readout
+        title: Findings playback and next steps
+        covers: [how]
+        minutes: 60
+        minDepth: 2
+        last: true
+        clientRoles: [sponsor, it-lead, business-owner]
+        ourRoles: [account-lead, solution-architect, delivery-lead]
+        agenda: [The Brief as we understand it, Recommendations and options, Open decisions, Next steps]
+
 
   data-platform:
     label: Data platform
@@ -37,12 +93,39 @@ packs:
     askAbout:
       - The list of reports to be rebuilt, and which can be retired
       - Data classification and residency for each source
+    ourRoles: [data-engineer, analytics-engineer]
+    sessions:
+      - key: data-sources
+        title: Data sources and pipelines
+        covers: [from]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [data-owner, it-lead]
+        ourRoles: [data-engineer, solution-architect]
+        agenda: [Source systems with volumes and change rates, Current ETL and where logic lives, Latency needs]
+      - key: reporting
+        title: Reporting and analytics deep dive
+        covers: [from, what]
+        minutes: 90
+        minDepth: 3
+        clientRoles: [data-owner, business-owner]
+        ourRoles: [analytics-engineer]
+        agenda: [Report inventory and owners, Which reports to rebuild or retire, Self-service needs]
+      - key: data-quality
+        title: Data quality and governance
+        covers: [rules, from]
+        minutes: 60
+        minDepth: 3
+        clientRoles: [data-owner, security-owner]
+        ourRoles: [data-engineer]
+        agenda: [Known quality issues, Master data, Ownership and stewardship]
+
 
   cloud-migration:
     label: Cloud migration
     paths: [Migration waves and cutover, Compute and modernisation]
     description: Moving workloads between data centres and clouds, e.g. AWS to Google Cloud.
-    signals: [migrat, lift and shift, data centre, data center, aws, azure, on-prem, on prem, rehost, replatform, cutover, decommission, ec2, vmware]
+    signals: [migrate, migration, lift and shift, data centre, data center, aws, azure, on-prem, on prem, rehost, replatform, cutover, decommission, ec2, vmware]
     mustKnow:
       - Workload inventory (servers, VMs, containers, databases) with sizes
       - Dependencies between workloads
@@ -53,12 +136,39 @@ packs:
     askAbout:
       - Which workloads move as-is, which get rebuilt, which retire
       - Rollback expectations if a cutover fails
+    ourRoles: [cloud-architect, devops-engineer]
+    sessions:
+      - key: workloads
+        title: Workload inventory and dependencies
+        covers: [from]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [infra-owner, it-lead]
+        ourRoles: [cloud-architect, solution-architect]
+        agenda: [Servers, databases and containers with sizes, Dependencies between workloads, Contract end dates]
+      - key: network-identity
+        title: Network, identity and landing zone
+        covers: [from, rules]
+        minutes: 90
+        minDepth: 3
+        clientRoles: [infra-owner, security-owner]
+        ourRoles: [cloud-architect, security-architect]
+        agenda: [Connectivity today, Identity and access, Landing zone standards]
+      - key: waves
+        title: Migration waves and cutover
+        covers: [how]
+        minutes: 60
+        minDepth: 3
+        clientRoles: [infra-owner, business-owner]
+        ourRoles: [cloud-architect, devops-engineer, delivery-lead]
+        agenda: [Downtime tolerance per workload, Wave grouping, Rollback expectations]
+
 
   integration-hub:
     label: Integration hub
     paths: [Integration, Event and API design]
     description: Connecting systems through APIs, events or an integration platform.
-    signals: [integration, integrate, api, apis, middleware, mulesoft, boomi, esb, event, kafka, pub/sub, webhook, interface, connector, sync]
+    signals: [integration, integrate, api, middleware, mulesoft, boomi, esb, event, kafka, pub/sub, webhook, interface, connector, sync]
     mustKnow:
       - Systems to connect, and who owns each
       - Interfaces today (APIs, files, direct database links), with counts
@@ -69,12 +179,31 @@ packs:
     askAbout:
       - Which system is the source of truth for each shared entity
       - Change windows and release cadence of each connected system
+    ourRoles: [integration-engineer]
+    sessions:
+      - key: interfaces
+        title: System landscape and interfaces
+        covers: [from]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [integration-owner, it-lead]
+        ourRoles: [integration-engineer, solution-architect]
+        agenda: [Systems to connect and owners, Interfaces today, Source of truth per entity]
+      - key: flows
+        title: Flow deep dive
+        covers: [from, rules]
+        minutes: 90
+        minDepth: 3
+        clientRoles: [integration-owner]
+        ourRoles: [integration-engineer]
+        agenda: [Volumes and peaks per flow, Latency and ordering, Error handling and replay]
+
 
   ai-agents:
     label: AI agents
     paths: [AI and agents, Agent evaluation and guardrails]
     description: One or more agents or assistants built on language models.
-    signals: [agent, agents, assistant, chatbot, copilot, llm, gen ai, genai, generative, gemini, claude, gpt, rag, automate, automation]
+    signals: [agent, assistant, chatbot, copilot, llm, gen ai, genai, generative, gemini, claude, gpt, rag, automate, automation]
     mustKnow:
       - Use cases, each with the user, the task and today's way of doing it
       - Tools and systems each agent must read or act on
@@ -85,6 +214,33 @@ packs:
     askAbout:
       - Actions an agent may take on its own versus with human approval
       - A sample set of real cases to evaluate against
+    ourRoles: [ml-engineer]
+    sessions:
+      - key: use-cases
+        title: Use-case walkthrough
+        covers: [why, what]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [business-owner, ai-lead]
+        ourRoles: [ml-engineer, solution-architect]
+        agenda: [Each use case with today's process, Volumes and value per use case, What the agent may do on its own]
+      - key: agent-data-tools
+        title: Data and tool access for agents
+        covers: [from, rules]
+        minutes: 60
+        minDepth: 3
+        clientRoles: [ai-lead, data-owner, security-owner]
+        ourRoles: [ml-engineer, security-architect]
+        agenda: [Systems each agent reads or acts on, Data it must never see, Human approval points]
+      - key: evaluation
+        title: Evaluation and guardrails
+        covers: [what, rules]
+        minutes: 60
+        minDepth: 3
+        clientRoles: [ai-lead, business-owner]
+        ourRoles: [ml-engineer]
+        agenda: [Accuracy bar per use case, Real cases to evaluate against, Monitoring and escalation]
+
 
   application-build:
     label: Application build
@@ -100,3 +256,21 @@ packs:
     askAbout:
       - Which journeys are needed for launch and which can follow
       - Who accepts the design and the build
+    ourRoles: [solution-architect, devops-engineer]
+    sessions:
+      - key: journeys
+        title: Users and journeys
+        covers: [why, what]
+        minutes: 90
+        minDepth: 2
+        clientRoles: [business-owner, it-lead]
+        ourRoles: [solution-architect]
+        agenda: [Users and their journeys, Launch versus later, Systems read and written]
+      - key: non-functionals
+        title: Non-functional requirements
+        covers: [rules, from]
+        minutes: 60
+        minDepth: 3
+        clientRoles: [it-lead, security-owner, infra-owner]
+        ourRoles: [solution-architect, devops-engineer]
+        agenda: [Load and availability, Accessibility and branding, Hosting and operations]

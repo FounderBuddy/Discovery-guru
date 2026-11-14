@@ -60,3 +60,13 @@ def first_json_block(raw: str):
                 if depth == 0:
                     return json.loads(raw[start:i + 1])
     raise ValueError("No JSON found in model output.")
+
+
+def signal_hits(signals: list[str], text: str) -> int:
+    """Count pack signals in text as whole words, allowing common endings (migrate -> migrated, migration)."""
+    import re as _re
+    low = text.lower()
+    n = 0
+    for sg in signals or []:
+        n += len(_re.findall(r"\b" + _re.escape(sg.lower()) + r"(?:s|es|d|ed|ing|ion|ions|ation|ations)?\b", low))
+    return n

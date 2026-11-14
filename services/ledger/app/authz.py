@@ -18,14 +18,14 @@ ALL_USER_PERMS = {
     "claims.propose", "claims.review", "claims.supersede", "stakeholders.write", "rules.write",
     "openitems.write", "openitems.escalate", "divergences.propose", "divergences.resolve",
     "decisions.write", "decisions.decide", "recs.propose", "recs.approve", "engines.run", "delete",
-    "brief.edit", "brief.agree",
+    "brief.edit", "brief.agree", "plan.approve",
 }
 
 ROLE_PERMS: dict[str, set[str]] = {
     "owner": ALL_USER_PERMS,
     "contributor": {"read", "sources.write", "claims.propose", "claims.review", "stakeholders.write",
                     "rules.write", "openitems.write", "divergences.propose", "decisions.write",
-                    "recs.propose", "engines.run", "brief.edit"},
+                    "recs.propose", "engines.run", "brief.edit", "plan.track"},
     "reviewer": {"read", "decisions.write", "recs.approve", "openitems.write"},
     "observer": {"read"},
 }
@@ -40,6 +40,7 @@ SERVICE_PERMS: dict[str, set[str]] = {
     "engine-recommendation": {"read", "recs.propose", "decisions.escalate", "runs.write"},
     "engine-resolution": {"read", "openitems.escalate", "runs.write"},
     "engine-brief": {"read", "brief.propose", "runs.write"},
+    "engine-plan": {"read", "plan.propose", "runs.write"},
     "engine-artefacts": {"read"},
     "model-gateway": {"read"},
     "event-bus": set(),
@@ -48,7 +49,7 @@ SERVICE_PERMS: dict[str, set[str]] = {
 # Actions an agent may never take, whatever service it runs in. Checked separately as a backstop.
 HUMAN_ONLY = {"claims.review", "claims.supersede", "divergences.resolve", "decisions.decide",
               "recs.approve", "members.manage", "delete", "engagement.update", "practices.write",
-              "brief.edit", "brief.agree"}
+              "brief.edit", "brief.agree", "plan.approve", "plan.track"}
 
 
 def deny(message: str, code: str = "forbidden"):

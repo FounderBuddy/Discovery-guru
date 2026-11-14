@@ -16,7 +16,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from sdp_common.auth import Caller, caller_from
-from sdp_common.contracts import (ActorType, AgentRunRecord, BriefProposal, BriefSlotKey, ClaimProposal, DivergenceProposal,
+from sdp_common.contracts import (ActorType, AgentRunRecord, BriefProposal, PlanProposal, BriefSlotKey, ClaimProposal, DivergenceProposal,
                                   OpenItemProposal, RecommendationProposal, RuleCategory,
                                   StakeholderProposal)
 from sdp_common.events import make_event, publisher
@@ -24,7 +24,7 @@ from sdp_common.service import create_app
 from sdp_common.text import verify_quote
 
 from .authz import require, require_practice_admin
-from .db import (AgentRun, BriefSlot, Claim, Decision, Divergence, Engagement, History, Member, OpenItem,
+from .db import (AgentRun, BriefSlot, Claim, Plan, Decision, Divergence, Engagement, History, Member, OpenItem,
                  Practice, Recommendation, RuleStatus, SessionLocal, Source, SourceChunk,
                  Stakeholder, User, init_db, new_id, now, snake)
 
@@ -36,14 +36,18 @@ BRIEF_LABELS = {"purpose": "Purpose", "value": "Business value", "measures": "Su
                 "scope": "In scope", "nonGoals": "Out of scope", "shape": "Engagement shape"}
 
 
-def load_packs() -> dict:
+CONFIG_DIR = os.getenv("SDP_CONFIG_DIR") or os.path.join(os.path.dirname(__file__), "../../../config")
+
+
+def _yaml(name: str, env: str | None = None):
     import yaml
-    path = os.getenv("SDP_PACKS") or os.path.join(os.path.dirname(__file__), "../../../config/packs.yaml")
-    with open(path) as f:
-        return yaml.safe_load(f)["packs"]
+    with open(os.getenv(env or "") or os.path.join(CONFIG_DIR, name)) as f:
+        return yaml.safe_load(f)
 
 
-PACKS = load_packs()
+PACKS = _yaml("packs.yaml", "SDP_PACKS")["packs"]
+FORMATS = _yaml("discovery_formats.yaml")["formats"]
+ROLES = _yaml("roles.yaml")
 RULE_LABELS = {
     "regulatory": "Regulatory and compliance", "security": "Security policy",
     "strategic": "Strategic positions", "architecture": "Architectural standards",
@@ -1145,6 +1149,8 @@ def agree_brief(eid: str, key: str, bg: BackgroundTasks, db: Session = Depends(g
         raise HTTPException(409, {"code": "stale", "message": "Some claims behind this slot are no longer confirmed. Edit it first."})
     b.status, b.agreed_by, b.agreed_at, b.review_reason, b.updated_at = "agreed", c.actor.id, now(), "", now()
     hist(db, c, eid, "brief", b.id, "agreed", {"version": b.version, "text": b.text, "shapes": b.shapes})
+    if key == "shape":
+        _plan_shape_check(db, c, eid, ["core"] + list(b.shapes or []))
     _emit_brief(bg, b, eid, c)
     db.commit()
     return _slot_api(b)
@@ -1158,6 +1164,165 @@ def dismiss_suggestion(eid: str, key: str, db: Session = Depends(get_db), c: Cal
     b.suggestion = None
     db.commit()
     return _slot_api(b)
+
+
+# ------------------------------------------------------------------ discovery plan
+
+def _plan_api(p: Plan) -> dict:
+    out = p.to_api()
+    out["formatLabel"] = FORMATS.get(p.format, {}).get("label", p.format)
+    out["totalMinutes"] = sum(int(x.get("minutes") or 0) for x in p.sessions or [])
+    return out
+
+
+def _latest_plan(db: Session, eid: str) -> Plan | None:
+    return db.scalars(select(Plan).where(Plan.engagement_id == eid).order_by(Plan.version.desc()).limit(1)).first()
+
+
+def _plan_shape_check(db: Session, c: Caller, eid: str, packs: list[str]) -> None:
+    """A plan built for a different shape no longer fits: flag the live versions for review."""
+    for p in db.scalars(select(Plan).where(Plan.engagement_id == eid, Plan.status.in_(["draft", "approved"]))):
+        if set(p.packs or []) != set(packs):
+            p.status, p.review_reason = "needs_review", f"The agreed shape is now {', '.join(packs[1:]) or 'core only'}; this plan was built for {', '.join((p.packs or [])[1:]) or 'core only'}."
+            hist(db, c, eid, "plan", p.id, "needs_review", {"packs": packs})
+
+
+@app.get("/v1/planning", tags=["plan"])
+def planning_config(c: Caller = Depends(caller_dep)):
+    """Formats (how much time we have) and roles (ours and the client's), for the planner and the UI."""
+    return {"formats": [{"key": k, **v} for k, v in FORMATS.items()], "roles": ROLES}
+
+
+@app.get("/v1/engagements/{eid}/plans", tags=["plan"])
+def list_plans(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "read")
+    rows = db.scalars(select(Plan).where(Plan.engagement_id == eid).order_by(Plan.version.desc()))
+    return [{k: v for k, v in _plan_api(p).items() if k not in ("sessions", "ourTeam", "nominations", "requests", "risks", "basis")} for p in rows]
+
+
+@app.get("/v1/engagements/{eid}/plan", tags=["plan"])
+def get_plan(eid: str, version: Optional[int] = None, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    """The latest version (or a given one), with the approved version number alongside."""
+    require(db, c, eid, "read")
+    q = select(Plan).where(Plan.engagement_id == eid)
+    p = db.scalars(q.where(Plan.version == version)).first() if version else _latest_plan(db, eid)
+    approved = db.scalars(q.where(Plan.status == "approved")).first()
+    return {"plan": _plan_api(p) if p else None, "approvedVersion": approved.version if approved else None,
+            "versions": [v for (v,) in db.execute(select(Plan.version).where(Plan.engagement_id == eid).order_by(Plan.version.desc()))]}
+
+
+@app.post("/v1/engagements/{eid}/plans", tags=["plan"], status_code=201)
+def propose_plan(eid: str, body: PlanProposal, bg: BackgroundTasks, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "plan.propose")
+    fmt = FORMATS.get(body.format)
+    if not fmt:
+        raise HTTPException(422, {"code": "format", "message": f"Unknown format {body.format}."})
+    sessions = [x.model_dump(mode="json") for x in body.sessions]
+    total = sum(x["minutes"] for x in sessions)
+    if not sessions or len(sessions) > fmt["maxSessions"] or total > fmt["maxMinutes"] \
+            or any(x["minutes"] > fmt["sessionMax"] or not 1 <= x["day"] <= fmt["days"] for x in sessions):
+        raise HTTPException(422, {"code": "budget", "message": f"The plan breaks the {fmt['label']} budget "
+                                  f"({len(sessions)} sessions, {total} minutes)."})
+    known_oi = {i for (i,) in db.execute(select(OpenItem.id).where(OpenItem.engagement_id == eid))}
+    known_sh = {i for (i,) in db.execute(select(Stakeholder.id).where(Stakeholder.engagement_id == eid))}
+    for x in sessions:
+        for q in x["questions"]:
+            if q.get("openItemId") not in known_oi:
+                q["openItemId"] = None
+        for a in x["clientAttendees"]:
+            if a.get("stakeholderId") not in known_sh:
+                a["stakeholderId"] = None
+    version = (db.scalar(select(func.max(Plan.version)).where(Plan.engagement_id == eid)) or 0) + 1
+    for old in db.scalars(select(Plan).where(Plan.engagement_id == eid, Plan.status == "draft")):
+        old.status = "superseded"  # one live draft at a time; an approved version stays approved
+    p = Plan(id=new_id("pln"), engagement_id=eid, version=version, status="draft", format=body.format,
+             recommended_format=body.recommendedFormat, recommendation_reason=body.recommendationReason,
+             start_date=body.startDate, summary=body.summary, sessions=sessions,
+             our_team=[x.model_dump(mode="json") for x in body.ourTeam],
+             nominations=[x.model_dump(mode="json") for x in body.nominations],
+             requests=body.requests, risks=body.risks, packs=body.packs, basis=body.basis,
+             run_id=body.runId, created_by=c.actor.id)
+    db.add(p)
+    hist(db, c, eid, "plan", p.id, "drafted", {"version": version, "format": body.format, "sessions": len(sessions),
+                                               "minutes": total, "promptVersion": body.promptVersion, "model": body.model})
+    emit(bg, "sdp.plan.changed.v1", {"version": version, "status": "draft", "format": body.format}, eid, c, p.id)
+    db.commit()
+    return _plan_api(p)
+
+
+def _plan_or_404(db: Session, eid: str, version: int) -> Plan:
+    p = db.scalars(select(Plan).where(Plan.engagement_id == eid, Plan.version == version)).first()
+    if not p:
+        raise HTTPException(404, {"code": "not_found", "message": f"No plan version {version}."})
+    return p
+
+
+@app.post("/v1/engagements/{eid}/plans/{version}/approve", tags=["plan"])
+def approve_plan(eid: str, version: int, bg: BackgroundTasks, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    require(db, c, eid, "plan.approve")
+    p = _plan_or_404(db, eid, version)
+    if p.status not in ("draft", "needs_review"):
+        raise HTTPException(409, {"code": "state", "message": f"Version {version} is {p.status}; only the live draft can be approved."})
+    for old in db.scalars(select(Plan).where(Plan.engagement_id == eid, Plan.status == "approved")):
+        old.status = "superseded"
+    p.status, p.approved_by, p.approved_at, p.review_reason = "approved", c.actor.id, now(), ""
+    hist(db, c, eid, "plan", p.id, "approved", {"version": version})
+    emit(bg, "sdp.plan.changed.v1", {"version": version, "status": "approved", "format": p.format}, eid, c, p.id)
+    db.commit()
+    return _plan_api(p)
+
+
+def _session_date(start: str | None, day: int) -> str | None:
+    """Working day N from the start date (Mon-Fri)."""
+    if not start:
+        return None
+    from datetime import date, timedelta
+    d, left = date.fromisoformat(start), day - 1
+    while d.weekday() > 4:
+        d += timedelta(days=1)
+    while left:
+        d += timedelta(days=1)
+        if d.weekday() < 5:
+            left -= 1
+    return d.isoformat()
+
+
+class TrackIn(In):
+    sessionKey: str
+
+
+@app.post("/v1/engagements/{eid}/plans/{version}/track-questions", tags=["plan"])
+def track_questions(eid: str, version: int, body: TrackIn, db: Session = Depends(get_db), c: Caller = Depends(caller_dep)):
+    """Turn a session's untracked questions into open items, due on the session's date, so ageing and
+    the five resolution paths apply to them."""
+    require(db, c, eid, "plan.track")
+    if not is_user(c):
+        raise HTTPException(403, {"code": "human_only", "message": "Only people track plan questions."})
+    p = _plan_or_404(db, eid, version)
+    import copy
+    from sqlalchemy.orm.attributes import flag_modified
+    sessions = copy.deepcopy(p.sessions or [])
+    s = next((x for x in sessions if x["key"] == body.sessionKey), None)
+    if not s:
+        raise HTTPException(404, {"code": "not_found", "message": f"No session {body.sessionKey} in version {version}."})
+    labels = {**{k: v["label"] for k, v in ROLES["client"].items()}}
+    ask = labels.get((s.get("clientAttendees") or [{}])[0].get("role", ""), "")
+    created = []
+    for q in s["questions"]:
+        if q.get("openItemId"):
+            continue
+        oi = OpenItem(id=new_id("oi"), engagement_id=eid, question=q["text"],
+                      kind="artefact" if q["text"].lower().startswith(("can you share", "please share", "send")) else "decision",
+                      impact=f"Planned for: {s['title']} (day {s['day']})", ask_role=ask,
+                      due_date=_session_date(p.start_date, s["day"]), origin="plan", created_by=c.actor.id)
+        db.add(oi)
+        q["openItemId"] = oi.id
+        created.append(oi.id)
+        hist(db, c, eid, "openitem", oi.id, "created", {"fromPlan": p.version, "session": s["key"]})
+    p.sessions = sessions
+    flag_modified(p, "sessions")  # nested JSON edits are invisible to change tracking otherwise
+    db.commit()
+    return {"created": created, "plan": _plan_api(p)}
 
 
 # ------------------------------------------------------------------ practices (Datatonic, global)
@@ -1250,6 +1415,7 @@ def context(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_
     return {
         "engagement": e.to_api(),
         "brief": brief,
+        "plan": (lambda p: _plan_api(p) if p else None)(_latest_plan(db, eid)),
         "claims": [cl.to_api() for cl in db.scalars(select(Claim).where(Claim.engagement_id == eid, Claim.status == "confirmed"))],
         "rules": get_rules(eid, db, c),
         "practices": [p.to_api() for p in db.scalars(select(Practice).where(Practice.status == "active"))
@@ -1289,6 +1455,7 @@ def summary(eid: str, db: Session = Depends(get_db), c: Caller = Depends(caller_
         "needsReview": len([o for o in ois if o["needsReview"]]) + len([d for d in decisions if d.needs_review]),
         "brief": {st: len([b for b in _slots(db, eid) if b.status == st]) for st in ("empty", "draft", "agreed", "needs_review")},
         "briefNeedsReview": len([b for b in _slots(db, eid) if b.status == "needs_review"]),
+        "planNeedsReview": db.scalar(select(func.count()).select_from(Plan).where(Plan.engagement_id == eid, Plan.status == "needs_review")) or 0,
     }
 
 

@@ -4,6 +4,7 @@ import { api, ApiError, devUser } from "./api";
 import { AppCtx, useApp, useLoad, type Ctx } from "./ui";
 import { Engagements, Overview, People } from "./views/core";
 import { Brief } from "./views/brief";
+import { PlanView } from "./views/plan";
 import { Evidence, Questions, Rules } from "./views/evidence";
 import { Decisions, Divergences, How, OpenItems } from "./views/work";
 import { Governance, Outputs, Practices } from "./views/admin";
@@ -12,6 +13,7 @@ import "./styles.css";
 
 const ENGAGEMENT_ROUTES: { key: string; label: string; badge?: string }[] = [
   { key: "brief", label: "Brief", badge: "briefNeedsReview" },
+  { key: "plan", label: "Discovery plan", badge: "planNeedsReview" },
   { key: "home", label: "Overview" },
   { key: "people", label: "People" },
   { key: "evidence", label: "Evidence", badge: "proposedClaims" },
@@ -76,7 +78,7 @@ function Shell() {
   const view = !app.eid && !GLOBAL_ROUTES.some((r) => r.key === route) ? "engagements" : route;
 
   const V: Record<string, JSX.Element> = {
-    brief: <Brief />, home: <Overview go={go} />, people: <People />, evidence: <Evidence />, questions: <Questions />, rules: <Rules />,
+    brief: <Brief />, plan: <PlanView />, home: <Overview go={go} />, people: <People />, evidence: <Evidence />, questions: <Questions />, rules: <Rules />,
     divergences: <Divergences />, openitems: <OpenItems />, how: <How />, decisions: <Decisions />, outputs: <Outputs />,
     practices: <Practices />, governance: <Governance />, engagements: <Engagements go={go} />,
   };

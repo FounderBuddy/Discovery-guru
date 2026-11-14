@@ -1,0 +1,327 @@
+{
+  "$defs": {
+    "PlanAttendee": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "stakeholderId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stakeholderid"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "PlanAttendee",
+      "type": "object"
+    },
+    "PlanNomination": {
+      "additionalProperties": false,
+      "properties": {
+        "askWho": {
+          "default": "",
+          "title": "Askwho",
+          "type": "string"
+        },
+        "neededFor": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Neededfor",
+          "type": "array"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "PlanNomination",
+      "type": "object"
+    },
+    "PlanQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "covers": {
+          "default": "",
+          "title": "Covers",
+          "type": "string"
+        },
+        "mustKnow": {
+          "default": "",
+          "title": "Mustknow",
+          "type": "string"
+        },
+        "openItemId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Openitemid"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "PlanQuestion",
+      "type": "object"
+    },
+    "PlanSession": {
+      "additionalProperties": false,
+      "properties": {
+        "agenda": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Agenda",
+          "type": "array"
+        },
+        "clientAttendees": {
+          "items": {
+            "$ref": "#/$defs/PlanAttendee"
+          },
+          "title": "Clientattendees",
+          "type": "array"
+        },
+        "covers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Covers",
+          "type": "array"
+        },
+        "day": {
+          "default": 1,
+          "title": "Day",
+          "type": "integer"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "minutes": {
+          "default": 60,
+          "title": "Minutes",
+          "type": "integer"
+        },
+        "ourAttendees": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Ourattendees",
+          "type": "array"
+        },
+        "outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
+        },
+        "preReads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prereads",
+          "type": "array"
+        },
+        "purpose": {
+          "default": "",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/PlanQuestion"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "title"
+      ],
+      "title": "PlanSession",
+      "type": "object"
+    },
+    "PlanTeamMember": {
+      "additionalProperties": false,
+      "properties": {
+        "hours": {
+          "default": 0,
+          "title": "Hours",
+          "type": "number"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "why": {
+          "default": "",
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "PlanTeamMember",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "basis": {
+      "additionalProperties": true,
+      "title": "Basis",
+      "type": "object"
+    },
+    "format": {
+      "title": "Format",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "nominations": {
+      "items": {
+        "$ref": "#/$defs/PlanNomination"
+      },
+      "title": "Nominations",
+      "type": "array"
+    },
+    "ourTeam": {
+      "items": {
+        "$ref": "#/$defs/PlanTeamMember"
+      },
+      "title": "Ourteam",
+      "type": "array"
+    },
+    "packs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Packs",
+      "type": "array"
+    },
+    "promptVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Promptversion"
+    },
+    "recommendationReason": {
+      "default": "",
+      "title": "Recommendationreason",
+      "type": "string"
+    },
+    "recommendedFormat": {
+      "default": "",
+      "title": "Recommendedformat",
+      "type": "string"
+    },
+    "requests": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requests",
+      "type": "array"
+    },
+    "risks": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "sessions": {
+      "items": {
+        "$ref": "#/$defs/PlanSession"
+      },
+      "title": "Sessions",
+      "type": "array"
+    },
+    "startDate": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Startdate"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "sessions"
+  ],
+  "title": "PlanProposal",
+  "type": "object"
+}

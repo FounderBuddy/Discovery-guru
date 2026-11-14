@@ -229,3 +229,73 @@ def test_9_agreed_brief_flags_for_review_when_evidence_moves(world):
     slots = {s["key"]: s for s in ok(owner.get(f"/api/engagements/{eid}/brief"))["slots"]}
     assert slots["purpose"]["status"] == "draft" and cid not in slots["purpose"]["claimIds"]
     assert ok(owner.post(f"/api/engagements/{eid}/brief/purpose/agree"))["status"] == "agreed"
+
+
+def _plan(client, eid):
+    return ok(client.get(f"/api/engagements/{eid}/plan"))["plan"]
+
+
+def test_10_plan_depth_follows_the_time_we_have(world):
+    eid, alex, owner = world["eid"], world["alex"], world["owner"]
+    call = ok(alex.post(f"/api/engagements/{eid}/run/plan", json={"format": "single-call"}))
+    p = _plan(alex, eid)
+    assert call["status"] == "completed" and p["format"] == "single-call"
+    assert len(p["sessions"]) == 1 and p["sessions"][0]["minutes"] <= 60 and len(p["sessions"][0]["ourAttendees"]) <= 3
+    assert len(p["sessions"][0]["questions"]) >= 4 and "data-platform" in p["packs"]
+
+    ok(alex.post(f"/api/engagements/{eid}/run/plan", json={"format": "two-week", "startDate": "2026-11-23"}))
+    p = _plan(alex, eid)
+    s = sorted(p["sessions"], key=lambda x: x["day"])
+    assert p["version"] == 2 and len(s) >= 8 and p["totalMinutes"] <= 2160
+    assert s[0]["key"] == "kickoff" and s[0]["day"] == 1 and s[-1]["key"] == "readout" and s[-1]["day"] == 10
+    assert any(x["key"] == "midpoint" and 3 <= x["day"] <= 7 for x in s)
+    assert any(x["key"] == "data-sources" for x in s), "the shape's own sessions are in the plan"
+    assert {"data-engineer", "solution-architect"} <= {t["role"] for t in p["ourTeam"]}
+    unnamed = {a["role"] for x in s for a in x["clientAttendees"] if not a["name"]}
+    assert unnamed == {n["role"] for n in p["nominations"]}, "every unnamed attendee becomes a nomination"
+    assert all(x["questions"] for x in s), "no session without questions"
+    world["state"]["planVersion"] = p["version"]
+
+
+def test_11_plan_governance(world):
+    eid, alex, owner = world["eid"], world["alex"], world["owner"]
+    v = world["state"]["planVersion"]
+    bad = {"format": "single-call", "sessions": [{"key": "a", "title": "A", "minutes": 60}, {"key": "b", "title": "B", "minutes": 60}]}
+    r = httpx.post(f"{LEDGER}/v1/engagements/{eid}/plans", json=bad, headers=engine_headers("engine-plan"))
+    assert r.status_code == 422 and r.json()["detail"]["code"] == "budget", "the ledger enforces the time budget too"
+    r = httpx.post(f"{LEDGER}/v1/engagements/{eid}/plans/{v}/approve", headers=engine_headers("engine-plan"))
+    assert r.status_code == 403 and r.json()["detail"]["code"] == "human_only"
+    assert alex.post(f"/api/engagements/{eid}/plans/{v}/approve").status_code == 403
+    assert ok(owner.post(f"/api/engagements/{eid}/plans/{v}/approve"))["status"] == "approved"
+
+    tracked = ok(alex.post(f"/api/engagements/{eid}/plans/{v}/track-questions", json={"sessionKey": "kickoff"}))
+    assert tracked["created"]
+    oi = next(o for o in ok(alex.get(f"/api/engagements/{eid}/open-items")) if o["id"] == tracked["created"][0])
+    assert oi["dueDate"] == "2026-11-23" and oi["origin"] == "plan"
+    again = ok(alex.post(f"/api/engagements/{eid}/plans/{v}/track-questions", json={"sessionKey": "kickoff"}))
+    assert again["created"] == [], "tracking is idempotent"
+
+    md = owner.get(f"/api/engagements/{eid}/outputs/discovery-plan").text
+    assert "## Business context and outcomes" in md and "Mon 23 Nov 2026" in md
+    assert "hours" not in md.lower() and "nominat" not in md.lower(), "internal effort and nominations stay internal"
+
+    # the agreed shape changes: the approved plan no longer fits
+    ok(owner.put(f"/api/engagements/{eid}/brief/shape", json={"text": "A migration after all.", "shapes": ["cloud-migration"],
+                                                              "claimIds": world["state"]["purposeClaims"][1:2] or []}))
+    assert ok(owner.get(f"/api/engagements/{eid}/brief"))["slots"][5]["claimIds"]
+    ok(owner.post(f"/api/engagements/{eid}/brief/shape/agree"))
+    p = ok(owner.get(f"/api/engagements/{eid}/plan", params={"version": v}))["plan"]
+    assert p["status"] == "needs_review" and "cloud-migration" in p["reviewReason"]
+    assert ok(owner.get(f"/api/engagements/{eid}/summary"))["planNeedsReview"] >= 1
+
+
+def test_12_plan_recommends_a_format(world):
+    owner = world["owner"]
+    e = ok(owner.post("/api/engagements", json={"name": "Format check", "client": "Example Co"}), 201)["id"]
+    ok(owner.post(f"/api/engagements/{e}/run/plan"))
+    assert _plan(owner, e)["format"] == "single-call", "nothing shared yet: one call"
+    ok(owner.post(f"/api/engagements/{e}/sources/text", json={"title": "RFP for a data platform", "kind": "rfp",
+                                                               "text": "We want a new data warehouse and reporting. " * 20}), 201)
+    ok(owner.post(f"/api/engagements/{e}/run/plan"))
+    p = _plan(owner, e)
+    assert p["format"] == "workshop-day" and "RFP" in p["recommendationReason"] and "data-platform" in p["packs"]

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { api } from "../api";
 import { can, Chip, Empty, fmt, KIND_LABEL, Modal, Provenance, Q_LABEL, useAction, useApp, useLoad } from "../ui";
 
-const KINDS = ["transcript", "architecture", "policy", "inventory", "proposal", "other"];
+const KINDS = ["transcript", "rfp", "requirements", "email", "notes", "architecture", "policy", "inventory", "proposal", "other"];
 const RULE_CATS: Record<string, string> = {
   regulatory: "Regulatory and compliance", security: "Security policy", strategic: "Strategic positions",
   architecture: "Architectural standards", organisational: "Organisational and governance", commercial: "Commercial", operational: "Operational",

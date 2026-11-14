@@ -56,7 +56,7 @@ themselves. So a compromised engine can propose, never confirm.
 
 `Engagement` → `Member` (role) · `Stakeholder` · `Source` → `SourceChunk` · `Claim` (question, kind,
 quote, status, supersededBy) · `RuleStatus` · `OpenItem` (owner, ageing, resolution path) ·
-`Divergence` · `Decision` (incl. escalated conflicts) · `BriefSlot` (status, text, shapes, cited claims, gaps, suggestion) · `Recommendation` (level, conflicts, status) ·
+`Divergence` · `Decision` (incl. escalated conflicts) · `Plan` (versioned sessions, team, nominations) · `BriefSlot` (status, text, shapes, cited claims, gaps, suggestion) · `Recommendation` (level, conflicts, status) ·
 `Practice` (Datatonic practice library, with `appliesTo` packs) · `AgentRun` (prompt version, model, tokens, cost) · `History`
 (append-only, every change, who and why).
 
@@ -82,6 +82,27 @@ The Brief is six slots: purpose, value, measures, scope, nonGoals, shape. Each m
 
 "core" is always applied. Adding a kind of engagement means adding a pack block: no code changes.
 
+## Discovery Plan
+
+engine-plan turns what we have so far into a plan, in two steps:
+
+1. **Skeleton, in code.** The chosen format (`discovery_formats.yaml`: depth, days, session cap, minutes cap,
+   longest session) and the applied packs pick session templates (`sessions` in `packs.yaml`, each with a
+   `minDepth`). At depth 1 they fold into one time-boxed call. Otherwise sessions are ranked, trimmed to the
+   budget, ordered (kickoff, domain sessions, mid-point playback on long formats, readout last) and spread
+   over the days. Client roles are matched to stakeholders by title (`roles.yaml`); unmatched roles become
+   nominations to ask the sponsor for. Questions come from the packs' must-know lists, the Brief's gaps,
+   starter questions for empty Brief parts, and open items routed by who should answer them. Our effort is
+   hours in the room plus the same again for preparation, plus synthesis for the architect.
+2. **Tailoring, by the model.** It reads the raw documents (a plan doesn't need confirmed claims), the claims,
+   the Brief and open items, and rewrites each session's purpose, agenda, questions and pre-reads. It can't
+   change sessions, days, durations or attendees. If the model fails, the skeleton is saved as the plan.
+
+The ledger checks the budget again on every proposal. Each run writes a new version; the owner approves one.
+When the agreed shape changes, live plans built for another shape go to `needs_review`. "Track questions"
+turns a session's questions into open items due on that session's date, so ageing and the five resolution
+paths apply. If the Brief has no shape yet, the planner infers one from the documents and says so.
+
 ## Recommendation levels and conflicts
 
 1. **Practice** — a maintained Datatonic practice from the library applies.
@@ -101,7 +122,7 @@ design independent of the answer). Policy is versioned (`policy-v1`).
 
 ## Schema changes
 
-The ledger schema is managed by Alembic (`services/ledger/migrations/`, baseline `0001`). The ledger runs
+The ledger schema is managed by Alembic (`services/ledger/migrations/`: `0001` baseline, `0002` discovery plans). The ledger runs
 `upgrade head` on every start, under a Postgres advisory lock so concurrent Cloud Run instances don't race.
 A database created before migrations existed is refused with a clear message: start it fresh.
 Every model change ships with a migration (`make db-revision`), and `make db-check` fails if they drift.

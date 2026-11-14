@@ -1,4 +1,4 @@
-# Builds all 12 images in parallel. Invoked by deploy.sh with _REPO and _TAG.
+# Builds all 13 images in parallel. Invoked by deploy.sh with _REPO and _TAG.
 steps:
   - { id: ledger,                name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=ledger,                -t, "${_REPO}/ledger:${_TAG}", .] }
   - { id: event-bus,             name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=event-bus,             -t, "${_REPO}/event-bus:${_TAG}", .] }
@@ -11,6 +11,7 @@ steps:
   - { id: engine-resolution,     name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=engine-resolution,     -t, "${_REPO}/engine-resolution:${_TAG}", .] }
   - { id: engine-artefacts,      name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=engine-artefacts,      -t, "${_REPO}/engine-artefacts:${_TAG}", .] }
   - { id: engine-brief,          name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=engine-brief,          -t, "${_REPO}/engine-brief:${_TAG}", .] }
+  - { id: engine-plan,           name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.service, --build-arg, SERVICE=engine-plan,           -t, "${_REPO}/engine-plan:${_TAG}", .] }
   - { id: api-gateway,           name: gcr.io/cloud-builders/docker, waitFor: ["-"], args: [build, -f, deploy/Dockerfile.gateway,                                             -t, "${_REPO}/api-gateway:${_TAG}", .] }
 images:
   - "${_REPO}/ledger:${_TAG}"
@@ -24,6 +25,7 @@ images:
   - "${_REPO}/engine-resolution:${_TAG}"
   - "${_REPO}/engine-artefacts:${_TAG}"
   - "${_REPO}/engine-brief:${_TAG}"
+  - "${_REPO}/engine-plan:${_TAG}"
   - "${_REPO}/api-gateway:${_TAG}"
 options: { machineType: E2_HIGHCPU_8 }
 timeout: 1800s

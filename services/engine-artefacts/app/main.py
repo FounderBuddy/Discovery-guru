@@ -43,7 +43,8 @@ async def gather(eid: str) -> dict:
     return {"engagement": await get(""), "claims": await get("/claims"), "sources": await get("/sources"),
             "openItems": await get("/open-items"), "decisions": await get("/decisions"),
             "divergences": await get("/divergences"), "recs": await get("/recommendations"),
-            "rules": await get("/rules"), "stakeholders": await get("/stakeholders"), "brief": await get("/brief")}
+            "rules": await get("/rules"), "stakeholders": await get("/stakeholders"), "brief": await get("/brief"),
+            "plan": await get("/plan"), "planning": await L.get("/v1/planning", actor=ME)}
 
 
 def header(d: dict, title: str) -> list[str]:
@@ -149,7 +150,50 @@ def claims_register(d: dict) -> str:
     return buf.getvalue()
 
 
-BUILDERS = {"discovery-summary": discovery_summary, "open-items": open_items, "decision-log": decision_log,
+def discovery_plan(d: dict) -> str:
+    """Client-facing: the sessions, who we'd like in each, the agenda, and what to send beforehand.
+    Our internal effort, risks and nominations stay in the app."""
+    p = (d.get("plan") or {}).get("plan")
+    out = header(d, "Discovery plan")
+    if not p:
+        return "\n".join(out + ["_No plan yet: run the Discovery Plan engine._"])
+    croles = d["planning"]["roles"]["client"]
+    oroles = d["planning"]["roles"]["ours"]
+    status = "approved" if p["status"] == "approved" else f"draft (version {p['version']}, not yet approved)"
+    out += [f"**Format:** {p['formatLabel']} · {len(p['sessions'])} session(s) · {p['totalMinutes']} minutes of your time · {status}", ""]
+    if p.get("summary"):
+        out += [p["summary"], ""]
+    if p.get("requests"):
+        out += ["## Before we start, please send", ""] + [f"- {r}" for r in p["requests"]] + [""]
+    from datetime import date, timedelta
+    def when(day: int) -> str:
+        if not p.get("startDate"):
+            return f"Day {day}"
+        dd, left = date.fromisoformat(p["startDate"]), day - 1
+        while dd.weekday() > 4:
+            dd += timedelta(days=1)
+        while left:
+            dd += timedelta(days=1)
+            left -= dd.weekday() < 5
+        return dd.strftime("%a %d %b %Y")
+    for x in sorted(p["sessions"], key=lambda x: x["day"]):
+        who = [a["name"] + f" ({croles.get(a['role'], {}).get('label', a['role'])})" if a.get("name")
+               else f"{croles.get(a['role'], {}).get('label', a['role'])} (to be confirmed)" for a in x["clientAttendees"]]
+        out += [f"## {x['title']}", "", f"**{when(x['day'])} · {x['minutes']} minutes**", ""]
+        if x.get("purpose"):
+            out += [x["purpose"], ""]
+        out += [f"**Your side:** {', '.join(who) or 'to be confirmed'}",
+                f"**Our side:** {', '.join(oroles.get(r, {}).get('label', r) for r in x['ourAttendees'])}", ""]
+        if x.get("agenda"):
+            out += ["**Agenda**", ""] + [f"{i}. {a}" for i, a in enumerate(x["agenda"], 1)] + [""]
+        if x.get("questions"):
+            out += ["**Questions we'd like to cover**", ""] + [f"- {q['text']}" for q in x["questions"]] + [""]
+        if x.get("preReads"):
+            out += ["**Helpful to have beforehand**", ""] + [f"- {r}" for r in x["preReads"]] + [""]
+    return "\n".join(out)
+
+
+BUILDERS = {"discovery-plan": discovery_plan, "discovery-summary": discovery_summary, "open-items": open_items, "decision-log": decision_log,
             "divergence-log": divergence_log, "recommendations": recommendations, "claims-register": claims_register}
 
 

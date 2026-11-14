@@ -20,6 +20,17 @@ AI agents, application build, or a mix) is never picked up front; it emerges fro
 is set it decides which question packs, current-state checklists, Datatonic practices and recommendation
 paths apply. Packs live in [`config/packs.yaml`](config/packs.yaml); adding one needs no code.
 
+Before any of that, the **Discovery Plan** says how to run discovery. Load whatever you have (an RFP, a call
+transcript, notes, an email) and say how much time you have: a single call, a half day, a workshop day, one
+week or two weeks (or let the app recommend one). The plan lists the sessions, the day and duration of each,
+who should attend from the client (named people where we know them, functions to nominate where we don't),
+who from our side (architect, data engineer, ML engineer, DevOps, security…) with hours, the agenda, the
+questions to ask, and what to request beforehand. A single call folds everything into one time-boxed agenda;
+a two-week discovery adds deep dives per domain, a mid-point playback and a readout. Formats, roles and session
+templates are configuration (`config/discovery_formats.yaml`, `config/roles.yaml`, `sessions` in
+`config/packs.yaml`). The owner approves a version; a client-facing copy (without our internal hours or
+nominations) downloads from the Plan page.
+
 Every fact is a **claim** with a verbatim quote from a source. Agents propose; people confirm.
 Nothing an agent writes counts until a person with the right role accepts it.
 
@@ -31,13 +42,13 @@ Nothing an agent writes counts until a person with the right role accepts it.
                      │   └── events ── event-bus ──▶ subscribers
                      ▼                  ▲
    ingestion · engine-extraction · engine-divergence · engine-questions
-   engine-recommendation · engine-resolution · engine-artefacts · engine-brief
+   engine-recommendation · engine-resolution · engine-artefacts · engine-brief · engine-plan
                      │
                      ▼
                model-gateway ──▶ Claude on Vertex AI │ Claude API │ Kimi │ Gemini │ mock
 ```
 
-Twelve FastAPI services, each its own container. They talk in JSON over HTTP; every state change is
+Thirteen FastAPI services, each its own container. They talk in JSON over HTTP; every state change is
 also published as a CloudEvents 1.0 packet. Contracts live in `libs/sdp_common/contracts.py`
 and are exported as JSON Schema to [`contracts/`](contracts/). See [docs/architecture.md](docs/architecture.md).
 
@@ -55,6 +66,7 @@ and are exported as JSON Schema to [`contracts/`](contracts/). See [docs/archite
 | engine-resolution | 8014 | Ages unanswered questions and moves them to insist / estimate / risk / decision / design-around |
 | engine-artefacts | 8015 | Discovery summary, open items, decision log, divergence log, claims register |
 | engine-brief | 8016 | Drafts the Brief and the engagement's shape from confirmed claims; never agrees anything |
+| engine-plan | 8017 | Builds the Discovery Plan: sessions, attendees on both sides, questions, durations, effort |
 
 ## Run it
 
@@ -64,8 +76,8 @@ Create a codespace on this repo (Code → Codespaces → Create). The dev contai
 database next to the app and runs `make install web` for you. Then:
 
 ```bash
-make dev          # all 12 services against Postgres; keeps data between runs (make dev-fresh wipes it)
-make test         # in a second terminal: 11 end-to-end tests
+make dev          # all 13 services against Postgres; keeps data between runs (make dev-fresh wipes it)
+make test         # in a second terminal: 14 end-to-end tests
 ```
 
 Open the forwarded port 8000 and pick a dev user. Keep that port **private** (the default): local sign-in
@@ -80,9 +92,9 @@ You don't create any tables: the ledger migrates its database to the latest sche
 pip install -e libs/sdp_common
 for s in services/*/; do pip install -r "$s/requirements.txt"; done
 (cd web && npm ci && npm run build)
-python3 scripts/dev.py --fresh          # starts all 12 services, seeds a demo engagement
+python3 scripts/dev.py --fresh          # starts all 13 services, seeds a demo engagement
 open http://localhost:8000              # pick a dev user to sign in
-pytest -q tests/e2e_test.py             # 11 end-to-end tests against the running stack
+pytest -q tests/e2e_test.py             # 14 end-to-end tests against the running stack
 ```
 
 `python3 scripts/dev.py --model claude-api` uses a real model (needs `ANTHROPIC_API_KEY`).
@@ -124,7 +136,7 @@ The event bus keeps a small delivery log in SQLite; it is a log, not a source of
 
 ## Switching models
 
-Edit `config/models.yaml` (or set `SDP_MODEL_DEFAULT`). Each task (extraction, divergence, questions, recommendation, brief)
+Edit `config/models.yaml` (or set `SDP_MODEL_DEFAULT`). Each task (extraction, divergence, questions, recommendation, brief, plan)
 can be routed to a different provider. Adapters exist for `vertex_anthropic`, `anthropic`,
 `openai_compatible` (Kimi, DeepSeek, vLLM, Ollama…), `vertex_gemini`, and `mock`.
 The model ids in the file are placeholders: confirm them for your account.
@@ -140,7 +152,7 @@ source; every change is in an append-only history; superseding a claim flags eve
 ```
 libs/sdp_common/     shared contracts, events, auth, clients, engine kit
 services/<name>/     one FastAPI service each (app/, prompts/, requirements.txt)
-config/              models.yaml, packs.yaml, practices.seed.json
+config/              models.yaml, packs.yaml, discovery_formats.yaml, roles.yaml, practices.seed.json
 contracts/           generated JSON Schemas (python3 scripts/gen_schemas.py)
 web/                 React 18 + Vite + TypeScript
 deploy/              Dockerfiles, Cloud Run deploy script, Cloud Build config

@@ -256,6 +256,64 @@ class BriefProposal(_Packet):
     model: Optional[str] = None
 
 
+class PlanAttendee(_Packet):
+    role: str                                   # key from roles.yaml (client or ours)
+    stakeholderId: Optional[str] = None         # client side: the named person, when we know them
+    name: str = ""                              # display name; empty when still to be nominated
+
+
+class PlanQuestion(_Packet):
+    text: str
+    covers: str = ""                            # why | what | rules | from | how
+    openItemId: Optional[str] = None            # set when the question is tracked as an open item
+    mustKnow: str = ""                          # the pack checklist item it answers, if any
+
+
+class PlanSession(_Packet):
+    key: str                                    # template key, or a new key for a session the model added
+    title: str
+    purpose: str = ""
+    day: int = 1
+    minutes: int = 60
+    covers: list[str] = Field(default_factory=list)
+    clientAttendees: list[PlanAttendee] = Field(default_factory=list)
+    ourAttendees: list[str] = Field(default_factory=list)       # role keys
+    agenda: list[str] = Field(default_factory=list)
+    questions: list[PlanQuestion] = Field(default_factory=list)
+    preReads: list[str] = Field(default_factory=list)           # what to ask the client to send before
+    outputs: list[str] = Field(default_factory=list)
+
+
+class PlanTeamMember(_Packet):
+    role: str
+    why: str = ""
+    hours: float = 0                            # in sessions, plus preparation and write-up
+
+
+class PlanNomination(_Packet):
+    role: str                                   # client function with no named owner yet
+    neededFor: list[str] = Field(default_factory=list)          # session keys
+    askWho: str = ""                            # who to ask for the nomination
+
+
+class PlanProposal(_Packet):
+    format: str
+    recommendedFormat: str = ""
+    recommendationReason: str = ""
+    startDate: Optional[str] = None
+    summary: str = ""
+    sessions: list[PlanSession]
+    ourTeam: list[PlanTeamMember] = Field(default_factory=list)
+    nominations: list[PlanNomination] = Field(default_factory=list)
+    requests: list[str] = Field(default_factory=list)           # artefacts to request up front
+    risks: list[str] = Field(default_factory=list)
+    packs: list[str] = Field(default_factory=list)
+    basis: dict[str, Any] = Field(default_factory=dict)         # what the plan was built from
+    runId: Optional[str] = None
+    promptVersion: Optional[str] = None
+    model: Optional[str] = None
+
+
 class AgentRunRecord(_Packet):
     id: str
     engine: str
@@ -319,6 +377,12 @@ class BriefChangedData(_Packet):
     version: int
 
 
+class PlanChangedData(_Packet):
+    version: int
+    status: str            # draft | approved | superseded | needs_review
+    format: str
+
+
 class OpenItemEscalatedData(_Packet):
     openItemId: str
     level: int
@@ -334,6 +398,7 @@ EVENT_TYPES: dict[str, type[_Packet]] = {
     "sdp.decision.escalated.v1": DecisionEscalatedData,
     "sdp.openitem.escalated.v1": OpenItemEscalatedData,
     "sdp.brief.changed.v1": BriefChangedData,
+    "sdp.plan.changed.v1": PlanChangedData,
 }
 
 PACKETS: dict[str, type[BaseModel]] = {
@@ -348,5 +413,6 @@ PACKETS: dict[str, type[BaseModel]] = {
     "open-item-proposal": OpenItemProposal,
     "recommendation-proposal": RecommendationProposal,
     "brief-proposal": BriefProposal,
+    "plan-proposal": PlanProposal,
     "agent-run-record": AgentRunRecord,
 }

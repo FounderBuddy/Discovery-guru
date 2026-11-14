@@ -15,6 +15,7 @@ routes:                     # task -> provider
   questions: claude-vertex
   recommendation: claude-vertex
   brief: claude-vertex
+  plan: claude-vertex
 
 providers:
   claude-vertex:

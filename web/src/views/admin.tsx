@@ -65,6 +65,7 @@ export function Practices() {
 }
 
 const OUTPUTS = [
+  { key: "discovery-plan", label: "Discovery plan (for the client)", ext: "md" },
   { key: "discovery-summary", label: "Discovery summary", ext: "md" },
   { key: "open-items", label: "Open items register", ext: "md" },
   { key: "decision-log", label: "Decision log", ext: "md" },

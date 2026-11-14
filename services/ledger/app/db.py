@@ -292,6 +292,33 @@ class BriefSlot(Base):
     updated_at = ts()
 
 
+class Plan(Base):
+    """One version of the Discovery Plan. Each engine run writes a new draft version; the owner approves one."""
+    __tablename__ = "plans"
+    id = Column(String, primary_key=True)
+    engagement_id = Column(String, index=True)
+    version = Column(Integer)
+    status = Column(String, default="draft")      # draft | approved | superseded | needs_review
+    format = Column(String)                       # key in discovery_formats.yaml
+    recommended_format = Column(String, default="")
+    recommendation_reason = Column(Text, default="")
+    start_date = Column(String, nullable=True)    # ISO date of day 1
+    summary = Column(Text, default="")
+    sessions = Column(JSON, default=list)
+    our_team = Column(JSON, default=list)
+    nominations = Column(JSON, default=list)
+    requests = Column(JSON, default=list)
+    risks = Column(JSON, default=list)
+    packs = Column(JSON, default=list)
+    basis = Column(JSON, default=dict)
+    run_id = Column(String, nullable=True)
+    created_by = Column(String, default="")
+    created_at = ts()
+    approved_by = Column(String, nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    review_reason = Column(Text, default="")
+
+
 class AgentRun(Base):
     __tablename__ = "agent_runs"
     id = Column(String, primary_key=True)

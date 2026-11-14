@@ -1,0 +1,59 @@
+# How much discovery time we have. The Discovery Plan engine builds the skeleton from this in code
+# (so the budget is always respected) and the model tailors each session to the evidence.
+#   depth        1 = understand the requirement, 2 = cover each domain once, 3 = deep dives + playback
+#   days         working days the sessions are spread over
+#   maxSessions  hard cap on client sessions
+#   maxMinutes   hard cap on total client time (sum of session durations)
+#   sessionMax   longest single session
+#   suggestWhen  plain-language hints the engine uses to recommend a format; you choose
+
+formats:
+  single-call:
+    label: Single call
+    description: One call with a prospect to understand the requirement and qualify next steps.
+    depth: 1
+    days: 1
+    maxSessions: 1
+    maxMinutes: 60
+    sessionMax: 60
+    suggestWhen: First contact, an inbound enquiry, or a short email describing a need.
+
+  half-day:
+    label: Half-day workshop
+    description: Business context plus one pass over the current state and constraints.
+    depth: 2
+    days: 1
+    maxSessions: 3
+    maxMinutes: 210
+    sessionMax: 90
+    suggestWhen: A qualified opportunity with a clear sponsor but no budget for paid discovery.
+
+  workshop-day:
+    label: Workshop day
+    description: A full day covering each domain once, ending with a playback.
+    depth: 2
+    days: 1
+    maxSessions: 5
+    maxMinutes: 360
+    sessionMax: 90
+    suggestWhen: An RFP response needing clarification, or a scoping day before a proposal.
+
+  one-week:
+    label: One-week discovery
+    description: Domain sessions plus deep dives where the risk is, with a final readout.
+    depth: 3
+    days: 5
+    maxSessions: 10
+    maxMinutes: 1080
+    sessionMax: 120
+    suggestWhen: Paid discovery for a single-shape engagement, or a large RFP with many unknowns.
+
+  two-week:
+    label: Two-week discovery
+    description: Full current-state and target-state discovery, a mid-point playback and a final readout.
+    depth: 3
+    days: 10
+    maxSessions: 18
+    maxMinutes: 2160
+    sessionMax: 120
+    suggestWhen: Paid discovery for a mixed-shape engagement (e.g. migration plus agents) or a programme.

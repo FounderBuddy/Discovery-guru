@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import re
 
+from sdp_common.text import signal_hits
+
 UNITS = r"(tb|gb|reports|report|weeks|months|days|servers|vms|sources|users|people|%|years)"
 NUM = re.compile(r"(\d+(?:\.\d+)?)\s*" + UNITS, re.I)
 PREFIX = re.compile(r"^\s*(?:\[[^\]]*\]\s*)?([A-Z][\w .'-]{1,40}?):\s+")
@@ -163,7 +165,7 @@ def _brief(prompt: str) -> dict:
         if not m:
             continue
         sigs = [x.strip().lower() for x in m.group(2).split(",") if x.strip()]
-        matched = [c for c in claims if any(re.search(r"\b" + re.escape(sg), c["text"].lower()) for sg in sigs)]
+        matched = [c for c in claims if signal_hits(sigs, c["text"])]
         if matched:
             scores[m.group(1)], hits[m.group(1)] = len(matched), matched
     shapes = [k for k, n in sorted(scores.items(), key=lambda kv: -kv[1]) if n >= 2][:3]
@@ -174,7 +176,25 @@ def _brief(prompt: str) -> dict:
     return {"slots": slots}
 
 
+def _plan(prompt: str) -> dict:
+    m = re.search(r"SKELETON:\n(.*?)\n\nBRIEF:", prompt, re.S)
+    skeleton = json.loads(m.group(1)) if m else []
+    claims = _claim_lines(prompt)
+    numbered = [c for c in claims if NUM.search(c["text"])]
+    out = []
+    for i, t in enumerate(skeleton):
+        qs = list(t.get("questions") or [])
+        if i < len(numbered):  # one evidence-specific question per session, from a claim with a figure in it
+            qs.insert(0, {"text": f"You said: \"{numbered[i]['text'][:90]}\". What is today's baseline, and who measures it?", "covers": "what"})
+        out.append({"key": t["key"], "purpose": f"Leave with a clear, shared view of {t['title'].lower()}.",
+                    "agenda": t.get("agenda") or [], "questions": qs[:8],
+                    "preReads": [f"Anything you already have on {t['title'].lower()}"], "outputs": [f"Notes on {t['title'].lower()} for the Brief"]})
+    return {"summary": f"{len(skeleton)} session(s) to build the Brief and the current-state picture.",
+            "sessions": out, "requests": ["Organisation chart for the teams involved", "Any existing architecture diagrams"],
+            "risks": ["Sessions may slip if the right people cannot attend."]}
+
+
 def respond(task: str, prompt: str) -> str:
     fn = {"extraction": _extract, "divergence": _diverge, "questions": _questions, "recommendation": _recommend,
-          "brief": _brief}.get(task)
+          "brief": _brief, "plan": _plan}.get(task)
     return json.dumps(fn(prompt) if fn else {"text": "mock"})

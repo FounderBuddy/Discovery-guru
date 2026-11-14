@@ -1,0 +1,27 @@
+# Roles the Discovery Plan staffs sessions with.
+#   ours    - who from our side should be in the room
+#   client  - the client functions whose owner should attend; `match` words find a named stakeholder
+#             by title. If no stakeholder matches, the plan says who to ask for a nomination.
+
+ours:
+  account-lead:        { label: Account lead, does: Owns the relationship, commercials and next steps }
+  solution-architect:  { label: Solution architect, does: Leads discovery, owns the end-to-end design }
+  cloud-architect:     { label: Cloud / platform architect, does: Landing zone, network, identity, hosting }
+  data-engineer:       { label: Data engineer, does: Sources, pipelines, volumes, transformation logic }
+  analytics-engineer:  { label: Analytics engineer, does: Reports, semantic layer, BI migration }
+  ml-engineer:         { label: ML / AI engineer, does: Use cases, model choice, evaluation, agent design }
+  devops-engineer:     { label: DevOps / platform engineer, does: CI/CD, environments, operations, IaC }
+  integration-engineer: { label: Integration engineer, does: APIs, events, interfaces between systems }
+  security-architect:  { label: Security architect, does: Controls, compliance, data protection }
+  delivery-lead:       { label: Delivery lead, does: Plan, team shape, risks, ways of working }
+
+client:
+  sponsor:          { label: Business sponsor, match: [sponsor, ceo, coo, cfo, cdo, cio, director, vp, head, chief] }
+  business-owner:   { label: Business process owner, match: [business, operations, product, customer, service, manager] }
+  it-lead:          { label: IT / enterprise architecture lead, match: [it, architect, enterprise, technology, cto] }
+  data-owner:       { label: Data owner, match: [data, analytics, bi, warehouse, reporting, insight] }
+  ai-lead:          { label: AI / ML lead, match: [ai, ml, machine learning, data science, innovation, automation] }
+  security-owner:   { label: Security owner, match: [security, ciso, risk, compliance, privacy, dpo, governance] }
+  infra-owner:      { label: Infrastructure / cloud operations, match: [infrastructure, infra, cloud, platform, operations, ops, devops, network] }
+  integration-owner: { label: Integration / applications owner, match: [integration, application, apps, middleware, api, erp, crm] }
+  procurement:      { label: Procurement / finance, match: [procurement, finance, purchasing, commercial, contracts] }
