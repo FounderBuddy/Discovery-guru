@@ -1,8 +1,8 @@
 .PHONY: install web dev dev-fresh test schemas schemas-check db-check db-revision compose deploy
 
+# Installs into the same python3 that `make dev` runs with.
 install:
-	pip install -e libs/sdp_common
-	for s in services/*/; do pip install -r $$s/requirements.txt; done
+	python3 -m pip install pytest==8.3.4 -e libs/sdp_common $(addprefix -r ,$(wildcard services/*/requirements.txt))
 
 web:
 	cd web && npm ci && npm run build

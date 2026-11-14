@@ -91,11 +91,44 @@ def wait_healthy(port: int, timeout: float = 30) -> bool:
     return False
 
 
+NEEDED = {"uvicorn": "uvicorn", "fastapi": "fastapi", "httpx": "httpx", "sqlalchemy": "sqlalchemy", "alembic": "alembic",
+          "yaml": "pyyaml", "pypdf": "pypdf", "docx": "python-docx", "multipart": "python-multipart",
+          "google.auth": "google-auth", "sdp_common": "sdp-common (libs/sdp_common)"}
+
+
+def preflight() -> None:
+    """Fail fast, in the terminal, with the fix, rather than in a service log."""
+    import importlib.util
+    needed = dict(NEEDED, **({"psycopg": "psycopg"} if LEDGER_DB_URL.startswith("postgresql") else {}))
+    missing = []
+    for mod, pkg in needed.items():
+        try:
+            found = importlib.util.find_spec(mod) is not None
+        except ModuleNotFoundError:
+            found = False
+        if not found:
+            missing.append(pkg)
+    if missing:
+        print(f"Python packages missing for {sys.executable}:\n  {', '.join(missing)}\n\n"
+              "Install them with:   make install\n(the first time also:  make web)")
+        sys.exit(1)
+    if not (ROOT / "web" / "dist" / "index.html").exists():
+        print("Note: the web app isn't built yet, so http://localhost:8000 will only serve the API. Run: make web\n")
+
+
+def tail(path: Path, n: int = 15) -> str:
+    try:
+        return "".join(path.read_text(errors="replace").splitlines(keepends=True)[-n:])
+    except OSError:
+        return ""
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--model", default=os.getenv("SDP_MODEL_DEFAULT", "mock"))
     args = ap.parse_args()
+    preflight()
     if args.fresh and DATA.exists():
         shutil.rmtree(DATA)
     if args.fresh and LEDGER_DB_URL.startswith("postgresql"):
@@ -112,7 +145,8 @@ def main() -> None:
                              cwd=ROOT / "services" / name, env=senv, stdout=log, stderr=subprocess.STDOUT)
         procs.append((name, p))
         if not wait_healthy(port):
-            print(f"  {name} did not start: see data/logs/{name}.log")
+            print(f"  {name} did not start. Last lines of data/logs/{name}.log:\n")
+            print(tail(DATA / "logs" / f"{name}.log"))
             for _, q in procs:
                 q.terminate()
             sys.exit(1)
